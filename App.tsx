@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MOCK_NEARBY } from './src/data/mockNearby';
@@ -7,6 +8,8 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { clearActiveRequest, loadActiveRequest, saveActiveRequest } from './src/storage/activeRequest';
+import { loadProfile } from './src/storage/profile';
 import { NearbyCard, RadiusM, RideRequest, Role } from './src/types';
 import { isExpired } from './src/utils/expiry';
 
@@ -29,6 +32,46 @@ export default function App() {
   activeRef.current = active;
   matchRef.current = match;
 
+  // Restore an in-flight broadcast after a cold start (dropped if it expired while closed).
+  useEffect(() => {
+    let cancelled = false;
+    loadActiveRequest().then((restored) => {
+      if (!cancelled && restored) setActive(restored);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const startBroadcast = (req: RideRequest) => {
+    setActive(req);
+    setScreen('home');
+    saveActiveRequest(req).catch(() => {
+      Alert.alert('Saved for this session only', 'Your request could not be stored on the device and will not survive an app restart.');
+    });
+  };
+
+  const requestBroadcast = async (req: RideRequest) => {
+    let locationOptIn = false;
+    try {
+      locationOptIn = (await loadProfile()).locationOptIn;
+    } catch {
+      // Treat unreadable settings as no consent.
+    }
+    if (!locationOptIn) {
+      Alert.alert(
+        'Location sharing is off',
+        'Broadcasting shares your approximate location with nearby riders. Turn on "Share location while requesting" in Profile to continue.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Profile', onPress: () => setScreen('profile') },
+        ],
+      );
+      return;
+    }
+    startBroadcast(req);
+  };
+
   // Prune expired active broadcast + nearby cards; leave match safely if needed.
   useEffect(() => {
     const prune = () => {
@@ -40,6 +83,7 @@ export default function App() {
 
       if (currentActive && isExpired(currentActive.createdAt, currentActive.windowMin, t)) {
         setActive(null);
+        void clearActiveRequest();
         // Active broadcast ended — drop match UI tied to this trip.
         if (currentMatch) setMatch(null);
       } else if (currentMatch && isExpired(currentMatch.createdAt, currentMatch.windowMin, t)) {
@@ -95,8 +139,9 @@ export default function App() {
           role={role}
           onBack={() => setScreen('home')}
           onBroadcast={({ destination, destinationLat, destinationLng, radiusM, windowMin, note }) => {
+            const createdAt = Date.now();
             const req: RideRequest = {
-              id: String(Date.now()),
+              id: String(createdAt),
               role,
               destination,
               destinationLat,
@@ -104,10 +149,9 @@ export default function App() {
               radiusM: radiusM as RadiusM,
               windowMin,
               note,
-              createdAt: Date.now(),
+              createdAt,
             };
-            setActive(req);
-            setScreen('home');
+            void requestBroadcast(req);
           }}
         />
       )}
