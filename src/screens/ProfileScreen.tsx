@@ -33,9 +33,9 @@ function pickBestPhone(numbers: Contacts.PhoneNumber[] | undefined): string | nu
 }
 
 export function ProfileScreen({ onBack }: Props) {
-  const [name, setName] = useState('Sudeep');
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('+1');
-  const [locationOptIn, setLocationOptIn] = useState(true);
+  const [locationOptIn, setLocationOptIn] = useState(false);
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [loadingPhone, setLoadingPhone] = useState(true);
@@ -43,8 +43,9 @@ export function ProfileScreen({ onBack }: Props) {
   const persistPhone = useCallback(async (value: string) => {
     setPhone(value);
     const digits = toWhatsAppDigits(value);
-    if (digits.length >= 10) {
-      await SecureStore.setItemAsync(KEYS.phone, toDisplayPhone(digits));
+    if (digits) {
+      try { await SecureStore.setItemAsync(KEYS.phone, toDisplayPhone(digits)); }
+      catch { setStatus('Could not securely save this number.'); }
     }
   }, []);
 
@@ -110,7 +111,7 @@ export function ProfileScreen({ onBack }: Props) {
         if (savedLoc != null) setLocationOptIn(savedLoc === '1');
         if (savedWa != null) setWhatsappOptIn(savedWa === '1');
 
-        if (savedPhone && toWhatsAppDigits(savedPhone).length >= 10) {
+        if (savedPhone && toWhatsAppDigits(savedPhone)) {
           setPhone(savedPhone);
           setStatus('Using saved WhatsApp number.');
         } else {
@@ -130,17 +131,17 @@ export function ProfileScreen({ onBack }: Props) {
 
   const onChangeName = async (value: string) => {
     setName(value);
-    await SecureStore.setItemAsync(KEYS.name, value);
+    try { await SecureStore.setItemAsync(KEYS.name, value); } catch { setStatus('Could not save your profile securely.'); }
   };
 
   const onToggleLocation = async (value: boolean) => {
     setLocationOptIn(value);
-    await SecureStore.setItemAsync(KEYS.location, value ? '1' : '0');
+    try { await SecureStore.setItemAsync(KEYS.location, value ? '1' : '0'); } catch { setLocationOptIn(!value); setStatus('Could not save this privacy setting.'); }
   };
 
   const onToggleWhatsapp = async (value: boolean) => {
     setWhatsappOptIn(value);
-    await SecureStore.setItemAsync(KEYS.whatsapp, value ? '1' : '0');
+    try { await SecureStore.setItemAsync(KEYS.whatsapp, value ? '1' : '0'); } catch { setWhatsappOptIn(!value); setStatus('Could not save this privacy setting.'); }
   };
 
   return (

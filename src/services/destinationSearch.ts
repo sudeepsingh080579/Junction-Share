@@ -36,6 +36,7 @@ async function searchGooglePlaces(query: string): Promise<DestinationHit[]> {
       components: 'country:us',
     }).toString();
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`Search HTTP ${res.status}`);
   const json = (await res.json()) as {
     status: string;
     predictions?: { description: string; place_id: string; structured_formatting?: { main_text?: string; secondary_text?: string } }[];
@@ -54,6 +55,7 @@ async function searchGooglePlaces(query: string): Promise<DestinationHit[]> {
         key,
       }).toString();
     const dRes = await fetch(detailUrl);
+    if (!dRes.ok) continue;
     const dJson = (await dRes.json()) as {
       result?: { geometry?: { location?: { lat: number; lng: number } }; name?: string; formatted_address?: string };
     };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NearbyCard, RideRequest } from '../types';
 
 type Props = {
@@ -25,7 +25,13 @@ export function MatchScreen({ match, request, onBack }: Props) {
         <Text style={styles.body}>Going to {match.destination}</Text>
         {request ? <Text style={styles.body}>Your trip: {request.destination}</Text> : null}
       </View>
-      <Pressable style={styles.wa} onPress={() => Linking.openURL(wa)}>
+      <Pressable style={styles.wa} onPress={async () => {
+          try {
+            await Linking.openURL(wa);
+          } catch {
+            Alert.alert('Unable to open WhatsApp', 'Check that WhatsApp or a browser is available, then try again.');
+          }
+        }}>
         <Text style={styles.waText}>Chat on WhatsApp</Text>
       </Pressable>
       <Text style={styles.hint}>v1 hands off to WhatsApp — no in-app chat.</Text>
