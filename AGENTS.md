@@ -39,3 +39,11 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Cursor Cloud specific instructions
+
+- This repo uses npm and `package-lock.json` (there is no `bun.lock`). Expo SDK 57 needs Node.js 22.13 or newer. Install with `npm ci`.
+- Screens are switched in `App.tsx` (`home`, `create`, `inbox`, `match`, `profile`). There is no `src/app` Expo Router tree.
+- `npm test`, `npm run lint`, and `npm run typecheck` do not need a simulator. On branches that have not added those scripts yet, `npx tsc --noEmit` is the typecheck.
+- Browser preview: `npx expo start --web --host localhost` serves http://localhost:8081. The Cloud Agent install also adds `react-dom`, `react-native-web`, and `@expo/metro-runtime`, which are not in `package.json`.
+- Home → Nearby requests → Interested → Match works in the browser with the mock inbox. Profile saves and Broadcast need `expo-secure-store` (its web build is a stub), and the destination map uses `react-native-webview`, which does not render on web. No secrets are required for this local flow. `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is optional.
