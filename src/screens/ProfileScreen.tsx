@@ -33,7 +33,7 @@ function pickBestPhone(numbers: Contacts.PhoneNumber[] | undefined): string | nu
 }
 
 export function ProfileScreen({ onBack }: Props) {
-  const [name, setName] = useState('Sudeep');
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('+1');
   const [locationOptIn, setLocationOptIn] = useState(true);
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
@@ -110,7 +110,7 @@ export function ProfileScreen({ onBack }: Props) {
         if (savedLoc != null) setLocationOptIn(savedLoc === '1');
         if (savedWa != null) setWhatsappOptIn(savedWa === '1');
 
-        if (savedPhone && toWhatsAppDigits(savedPhone).length >= 10) {
+        if (savedPhone && toWhatsAppDigits(savedPhone)) {
           setPhone(savedPhone);
           setStatus('Using saved WhatsApp number.');
         } else {
