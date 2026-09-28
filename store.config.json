@@ -1,0 +1,72 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 FutureStack Services",
+    "version": "1.0",
+    "release": {
+      "automaticRelease": true
+    },
+    "info": {
+      "en-US": {
+        "title": "JunctionShare",
+        "subtitle": "PJ last-mile carpool",
+        "description": "JunctionShare helps people around Princeton Junction and West Windsor share last-mile rides.\n\nNeed a ride or have seats? Broadcast a short request with your destination, how far you\u2019re willing to match (about 100m\u20131km), and a time window. See nearby requests, then continue the conversation on WhatsApp when you\u2019re ready to go.\n\nBuilt for the train-to-home stretch: simple, local, and designed so you stay in control of who you contact.\n\nThis first release uses demo nearby riders so you can try the full flow while live matching is rolled out.",
+        "keywords": [
+          "carpool",
+          "rideshare",
+          "princeton",
+          "junction",
+          "west windsor",
+          "commute",
+          "train",
+          "last mile",
+          "whatsapp"
+        ],
+        "supportUrl": "https://futurestacklearnin.wixsite.com/rydio",
+        "privacyPolicyUrl": "https://futurestacklearnin.wixsite.com/rydio",
+        "promoText": "Find a nearby ride or empty seat after the train \u2014 then continue on WhatsApp."
+      }
+    },
+    "review": {
+      "firstName": "Sudeep",
+      "lastName": "Singh",
+      "email": "hello@rydio.app",
+      "phone": "+1 6096497802",
+      "demoRequired": false,
+      "notes": "JunctionShare is a last-mile carpool helper for the Princeton Junction / West Windsor area. Demo nearby riders appear in the inbox so review can walk Home \u2192 Need a ride \u2192 pick a destination on the map \u2192 Broadcast \u2192 Nearby \u2192 Match \u2192 WhatsApp. Location is used only while a request is active. Profile can fill a WhatsApp number from Contacts. No paid features. Export compliance: standard encryption only (ITSAppUsesNonExemptEncryption = false)."
+    },
+    "advisory": {
+      "ageRatingOverride": "NONE",
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "kidsAgeBand": null,
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false,
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "advertising": false,
+      "ageAssurance": false,
+      "ageRatingOverrideV2": "NONE",
+      "developerAgeRatingInfoUrl": null,
+      "gunsOrOtherWeapons": "NONE",
+      "healthOrWellnessTopics": false,
+      "messagingAndChat": false,
+      "parentalControls": false,
+      "userGeneratedContent": false
+    },
+    "categories": {
+      "primary": "TRAVEL",
+      "secondary": "SOCIAL_NETWORKING"
+    }
+  }
+}

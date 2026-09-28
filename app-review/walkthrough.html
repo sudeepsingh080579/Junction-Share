@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=430, height=932"/>
+<link rel="stylesheet" href="styles.css"/>
+<title>JunctionShare — App Review Walkthrough</title>
+<style>
+  html, body {
+    width: 430px;
+    height: 932px;
+    overflow: hidden;
+    margin: 0;
+    background: #0a0f0c;
+  }
+  /* Title card */
+  #title-card {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: linear-gradient(160deg, #1C2A1F 0%, #2F6F4E 55%, #1C2A1F 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-align: center;
+    padding: 40px;
+    transition: opacity 0.6s ease, visibility 0.6s;
+  }
+  #title-card.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #title-card .logo {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+  }
+  #title-card .subtitle {
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.9;
+    line-height: 1.45;
+    max-width: 320px;
+  }
+  #title-card .badge {
+    margin-top: 28px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.15);
+    padding: 8px 14px;
+    border-radius: 20px;
+  }
+
+  /* Screen stack */
+  .screen {
+    position: absolute;
+    inset: 0;
+    background: #F7F4EF;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 1;
+  }
+  .screen.active {
+    transform: translateX(0);
+    z-index: 2;
+  }
+  .screen.behind {
+    transform: translateX(0);
+    z-index: 1;
+  }
+  .screen.leaving-left {
+    transform: translateX(-30%);
+    z-index: 1;
+  }
+
+  /* Clickable affordances */
+  .tap {
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease, filter 0.12s ease, opacity 0.12s;
+  }
+  .tap:active, .tap.pressed {
+    transform: scale(0.97);
+    filter: brightness(0.92);
+  }
+  .link.tap:active, .back.tap:active,
+  .link.tap.pressed, .back.tap.pressed {
+    transform: none;
+    opacity: 0.65;
+  }
+
+  /* Toast after broadcast */
+  #toast {
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 48px;
+    z-index: 50;
+    background: #1C2A1F;
+    color: #fff;
+    text-align: center;
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.35s, transform 0.35s;
+    pointer-events: none;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Brief flash overlay for launch */
+  #launch-flash {
+    position: absolute;
+    inset: 0;
+    z-index: 90;
+    background: #F7F4EF;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  #launch-flash.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="phone" id="app">
+  <!-- TITLE CARD -->
+  <div id="title-card">
+    <div class="logo">JunctionShare</div>
+    <div class="subtitle">App Review Walkthrough<br/>(iOS UI)</div>
+    <div class="badge">TestFlight 1.0.0 (7) · UI mockups</div>
+  </div>
+  <div id="launch-flash"></div>
+
+  <!-- HOME -->
+  <div class="screen" id="screen-home" data-screen="home">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span class="status-icons">●●● ▮▮▮ 🔋</span>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div class="title">JunctionShare</div>
+        <div class="link tap" data-go="profile" id="nav-profile">Profile</div>
+      </div>
+      <div class="sub">Princeton Junction → West Windsor last-mile carpool</div>
+      <div class="home-hero">Train just arrived?<br/>Find a nearby ride or offer empty seats.</div>
+      <div class="btn btn-primary tap" data-go="create" id="nav-need-ride">Need a ride</div>
+      <div class="btn btn-secondary tap" id="nav-have-seats">Have seats</div>
+      <div class="card">
+        <div class="card-title">Your active request</div>
+        <div class="card-body">Need ride to West Windsor Community Park · 100m · next 15 min</div>
+      </div>
+      <div class="inbox-card tap" data-go="inbox" id="nav-inbox">
+        <div class="card-title">Nearby requests</div>
+        <div class="card-body">3 nearby · tap to review</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE REQUEST -->
+  <div class="screen" id="screen-create" data-screen="create">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span class="status-icons">●●● ▮▮▮ 🔋</span>
+    </div>
+    <div class="content" style="overflow-y:auto;">
+      <div class="back tap" data-go="home" id="create-back">← Back</div>
+      <div class="title-sm">Need a ride</div>
+      <div class="label">Destination</div>
+      <div class="input">West Windsor Community Park</div>
+      <div class="map-wrap">
+        <div class="map-roads"></div>
+        <div class="map-pin"></div>
+        <div class="map-label">📍 West Windsor Community Park · Google Maps preview</div>
+      </div>
+      <div class="gmaps">Open in Google Maps app</div>
+      <div class="hint-sm">Google Maps preview. Search picks a place, then you can open it in the Google Maps app.</div>
+      <div class="label">Radius</div>
+      <div class="row" id="radius-row">
+        <div class="chip chip-on tap chip-radius" data-val="100m">100m</div>
+        <div class="chip tap chip-radius" data-val="500m">500m</div>
+        <div class="chip tap chip-radius" data-val="1km">1km</div>
+      </div>
+      <div class="label">Window</div>
+      <div class="row" id="window-row">
+        <div class="chip tap chip-window" data-val="10 min">10 min</div>
+        <div class="chip chip-on tap chip-window" data-val="15 min">15 min</div>
+        <div class="chip tap chip-window" data-val="30 min">30 min</div>
+      </div>
+      <div class="label">Note</div>
+      <div class="input note">Just got off the NYC train at Princeton Junction</div>
+      <div class="broadcast tap" id="nav-broadcast">Broadcast</div>
+    </div>
+  </div>
+
+  <!-- INBOX -->
+  <div class="screen" id="screen-inbox" data-screen="inbox">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span class="status-icons">●●● ▮▮▮ 🔋</span>
+    </div>
+    <div class="content">
+      <div class="back tap" data-go="home" id="inbox-back">← Back</div>
+      <div class="title-sm">Nearby inbox</div>
+      <div class="nearby-card">
+        <div class="nearby-name">Alex · ~80m</div>
+        <div class="nearby-body">Needs ride to West Windsor Community Park · 1 seat(s)</div>
+        <div class="actions">
+          <div class="yes tap" data-go="match" id="nav-interested">Interested</div>
+          <div class="no tap">Decline</div>
+        </div>
+      </div>
+      <div class="nearby-card">
+        <div class="nearby-name">Jordan · ~220m</div>
+        <div class="nearby-body">Has seats to MarketFair Mall · 2 seat(s)</div>
+        <div class="actions">
+          <div class="yes tap">Interested</div>
+          <div class="no tap">Decline</div>
+        </div>
+      </div>
+      <div class="nearby-card">
+        <div class="nearby-name">Sam · ~450m</div>
+        <div class="nearby-body">Needs ride to Edinburg Rd / Quakerbridge · 1 seat(s)</div>
+        <div class="actions">
+          <div class="yes tap">Interested</div>
+          <div class="no tap">Decline</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MATCH -->
+  <div class="screen" id="screen-match" data-screen="match">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span class="status-icons">●●● ▮▮▮ 🔋</span>
+    </div>
+    <div class="content">
+      <div class="back tap" data-go="inbox" id="match-back">← Back</div>
+      <div class="title-sm">Match</div>
+      <div class="match-card">
+        <div class="match-name">Alex</div>
+        <div class="match-body">~80m away</div>
+        <div class="match-body">Going to West Windsor Community Park</div>
+        <div class="match-body">Your trip: West Windsor Community Park</div>
+      </div>
+      <div class="wa tap" id="nav-whatsapp">Chat on WhatsApp</div>
+      <div class="hint-center">v1 hands off to WhatsApp — no in-app chat.</div>
+      <div style="margin-top:28px;">
+        <div class="link tap" data-go="profile" id="nav-to-profile" style="text-align:center;display:block;">Open Profile →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="screen" id="screen-profile" data-screen="profile">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span class="status-icons">●●● ▮▮▮ 🔋</span>
+    </div>
+    <div class="content" style="overflow-y:auto;">
+      <div class="back tap" data-go="home" id="profile-back">← Back</div>
+      <div class="title-sm">Profile / safety</div>
+      <div class="label">First name</div>
+      <div class="input">Sudeep</div>
+      <div class="label">Phone (WhatsApp)</div>
+      <div class="input">+1 (609) 555-0142</div>
+      <div class="secondary-btn tap">Use number from this phone</div>
+      <div class="status-msg">Using saved WhatsApp number.</div>
+      <div class="toggle-row">
+        <div class="toggle-label">Share location while requesting</div>
+        <div class="switch tap" id="toggle-loc"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label">WhatsApp nearby alerts</div>
+        <div class="switch tap" id="toggle-wa"></div>
+      </div>
+      <div class="hint">Profile opens the contact picker so your WhatsApp number comes from this phone (pick your own card). The keyboard can also suggest it. iPhone will not let apps silently read the SIM line. Saved securely on device. Block / report lands later.</div>
+    </div>
+  </div>
+
+  <div id="toast">Request broadcast · nearby riders notified</div>
+</div>
+
+<script>
+(function () {
+  const screens = {};
+  document.querySelectorAll('.screen').forEach(el => {
+    screens[el.dataset.screen] = el;
+  });
+  let current = null;
+  let history = [];
+
+  function go(name, opts) {
+    opts = opts || {};
+    const next = screens[name];
+    if (!next) return;
+    if (current === name) return;
+
+    const prevEl = current ? screens[current] : null;
+    const nextEl = next;
+
+    // Reset classes
+    Object.values(screens).forEach(s => {
+      s.classList.remove('active', 'behind', 'leaving-left');
+    });
+
+    if (opts.replace || !prevEl) {
+      nextEl.classList.add('active');
+    } else if (opts.back) {
+      // reverse: current slides right, previous was behind
+      prevEl.style.transition = 'none';
+      prevEl.classList.add('active');
+      nextEl.style.transition = 'none';
+      nextEl.classList.add('behind', 'leaving-left');
+      // force reflow
+      void nextEl.offsetWidth;
+      prevEl.style.transition = '';
+      nextEl.style.transition = '';
+      prevEl.classList.remove('active');
+      prevEl.style.transform = 'translateX(100%)';
+      nextEl.classList.remove('leaving-left');
+      nextEl.classList.add('active');
+      nextEl.classList.remove('behind');
+      setTimeout(() => { prevEl.style.transform = ''; }, 500);
+    } else {
+      if (prevEl) {
+        prevEl.classList.add('behind', 'leaving-left');
+      }
+      nextEl.classList.add('active');
+    }
+
+    if (!opts.back && current) history.push(current);
+    if (opts.back) history.pop();
+    current = name;
+    window.__currentScreen = name;
+  }
+
+  function showToast(msg, ms) {
+    const t = document.getElementById('toast');
+    if (msg) t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), ms || 2200);
+  }
+
+  // Tap handlers
+  document.querySelectorAll('[data-go]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      el.classList.add('pressed');
+      setTimeout(() => el.classList.remove('pressed'), 150);
+      const dest = el.getAttribute('data-go');
+      const isBack = el.classList.contains('back');
+      go(dest, { back: isBack });
+    });
+  });
+
+  // Broadcast
+  document.getElementById('nav-broadcast').addEventListener('click', () => {
+    document.getElementById('nav-broadcast').classList.add('pressed');
+    setTimeout(() => document.getElementById('nav-broadcast').classList.remove('pressed'), 150);
+    showToast('Request broadcast · nearby riders notified', 2400);
+    setTimeout(() => go('home', { replace: true }), 1600);
+  });
+
+  // Chip toggles
+  document.querySelectorAll('.chip-radius').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip-radius').forEach(c => c.classList.remove('chip-on'));
+      chip.classList.add('chip-on');
+    });
+  });
+  document.querySelectorAll('.chip-window').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip-window').forEach(c => c.classList.remove('chip-on'));
+      chip.classList.add('chip-on');
+    });
+  });
+
+  // WhatsApp tap feedback
+  document.getElementById('nav-whatsapp').addEventListener('click', () => {
+    showToast('Opening WhatsApp…', 1800);
+  });
+
+  // Public API for Playwright
+  window.__jsWalkthrough = {
+    hideTitle() {
+      document.getElementById('title-card').classList.add('hidden');
+    },
+    showTitle() {
+      document.getElementById('title-card').classList.remove('hidden');
+    },
+    go,
+    showToast,
+    current: () => current,
+    launch() {
+      // Fade title, flash, land on home
+      const flash = document.getElementById('launch-flash');
+      document.getElementById('title-card').classList.add('hidden');
+      flash.classList.add('show');
+      go('home', { replace: true });
+      setTimeout(() => flash.classList.remove('show'), 350);
+    }
+  };
+
+  // Start on title (no screen active until launch)
+  window.__currentScreen = 'title';
+})();
+</script>
+</body>
+</html>
