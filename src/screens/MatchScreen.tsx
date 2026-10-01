@@ -25,7 +25,7 @@ export function MatchScreen({ match, request, onBack }: Props) {
         <Text style={styles.body}>Going to {match.destination}</Text>
         {request ? <Text style={styles.body}>Your trip: {request.destination}</Text> : null}
       </View>
-      <Pressable style={styles.wa} onPress={async () => {
+      {match.phoneE164 ? <Pressable style={styles.wa} onPress={async () => {
           try {
             await Linking.openURL(wa);
           } catch {
@@ -33,8 +33,8 @@ export function MatchScreen({ match, request, onBack }: Props) {
           }
         }}>
         <Text style={styles.waText}>Chat on WhatsApp</Text>
-      </Pressable>
-      <Text style={styles.hint}>v1 hands off to WhatsApp — no in-app chat.</Text>
+      </Pressable> : <Text style={styles.hint}>You matched, but WhatsApp contact is disabled because one or both people have not opted in.</Text>}
+      {match.phoneE164 ? <Text style={styles.hint}>WhatsApp contact is shared only after both people express interest and opt in.</Text> : null}
     </View>
   );
 }

@@ -4,18 +4,22 @@ import { NearbyCard } from '../types';
 
 type Props = {
   items: NearbyCard[];
+  status: string | null;
+  onRefresh: () => void;
   onBack: () => void;
   onInterested: (card: NearbyCard) => void;
   onDecline: (id: string) => void;
 };
 
-export function InboxScreen({ items, onBack, onInterested, onDecline }: Props) {
+export function InboxScreen({ items, status, onRefresh, onBack, onInterested, onDecline }: Props) {
   return (
     <View style={styles.root}>
       <Pressable onPress={onBack}>
         <Text style={styles.back}>← Back</Text>
       </Pressable>
       <Text style={styles.title}>Nearby inbox</Text>
+      {status ? <Text style={styles.status}>{status}</Text> : null}
+      <Pressable style={styles.refresh} onPress={onRefresh}><Text style={styles.refreshText}>Refresh</Text></Pressable>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {items.length === 0 ? <Text style={styles.empty}>No nearby requests right now.</Text> : null}
         {items.map((c) => (
@@ -46,6 +50,9 @@ const styles = StyleSheet.create({
   back: { color: '#2F6F4E', fontWeight: '600', marginBottom: 12 },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#1C2A1F' },
   empty: { color: '#5A655C' },
+  status: { color: '#8A4B12', marginBottom: 10, lineHeight: 20 },
+  refresh: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#E4EDE7', marginBottom: 12 },
+  refreshText: { color: '#2F6F4E', fontWeight: '700' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12 },
   name: { fontWeight: '700', color: '#1C2A1F' },
   body: { color: '#5A655C', marginTop: 4, marginBottom: 12 },

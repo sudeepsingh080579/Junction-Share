@@ -6,15 +6,16 @@ import { minutesLeft } from '../utils/expiry';
 type Props = {
   active?: RideRequest | null;
   /** Shared clock from App prune tick (for remaining-time label). */
-  now?: number;
+  now: number;
   inbox: NearbyCard[];
   onNeed: () => void;
   onOffer: () => void;
   onOpenInbox: () => void;
   onProfile: () => void;
+  onEndRequest: () => void;
 };
 
-export function HomeScreen({ active, now = Date.now(), inbox, onNeed, onOffer, onOpenInbox, onProfile }: Props) {
+export function HomeScreen({ active, now, inbox, onNeed, onOffer, onOpenInbox, onProfile, onEndRequest }: Props) {
   const left = active ? minutesLeft(active.createdAt, active.windowMin, now) : 0;
 
   return (
@@ -41,6 +42,7 @@ export function HomeScreen({ active, now = Date.now(), inbox, onNeed, onOffer, o
             {active.role === 'need' ? 'Need ride' : 'Offering seats'} to {active.destination} · {active.radiusM}m ·{' '}
             {left > 0 ? `${left} min left` : 'expiring…'}
           </Text>
+          <Pressable onPress={onEndRequest}><Text style={styles.end}>End request</Text></Pressable>
         </View>
       ) : null}
 
@@ -67,4 +69,5 @@ const styles = StyleSheet.create({
   inbox: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: '#fff' },
   cardTitle: { fontWeight: '700', color: '#1C2A1F', marginBottom: 4 },
   cardBody: { color: '#5A655C' },
+  end: { color: '#9A3D36', fontWeight: '700', marginTop: 10 },
 });

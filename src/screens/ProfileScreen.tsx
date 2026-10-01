@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -12,9 +12,12 @@ import {
 import * as Contacts from 'expo-contacts/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { toDisplayPhone, toWhatsAppDigits } from '../utils/phone';
+import { saveRemoteProfile } from '../services/matching';
+import { supabaseConfigured } from '../services/supabase';
 
 type Props = {
   onBack: () => void;
+  onLocationDisabled: () => void;
 };
 
 const KEYS = {
@@ -24,6 +27,23 @@ const KEYS = {
   whatsapp: 'js_profile_whatsapp_optin',
 } as const;
 
+async function saveLocal(key: string, value: string | null) {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    }
+    return;
+  }
+  if (value === null) await SecureStore.deleteItemAsync(key);
+  else await SecureStore.setItemAsync(key, value);
+}
+
+async function readLocal(key: string) {
+  if (Platform.OS === 'web') return typeof localStorage === 'undefined' ? null : localStorage.getItem(key);
+  return SecureStore.getItemAsync(key);
+}
+
 function pickBestPhone(numbers: Contacts.PhoneNumber[] | undefined): string | null {
   if (!numbers?.length) return null;
   const mobile = numbers.find((n) => /mobile|iphone|whatsapp|cell/i.test(n.label || ''));
@@ -32,24 +52,38 @@ function pickBestPhone(numbers: Contacts.PhoneNumber[] | undefined): string | nu
   return digits ? toDisplayPhone(digits) : null;
 }
 
-export function ProfileScreen({ onBack }: Props) {
+export function ProfileScreen({ onBack, onLocationDisabled }: Props) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('+1');
   const [locationOptIn, setLocationOptIn] = useState(false);
-  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
-  const [status, setStatus] = useState<string | null>(null);
-  const [loadingPhone, setLoadingPhone] = useState(true);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+  const [status, setStatus] = useState<string | null>(() =>
+    Platform.OS === 'web' ? 'Profile settings are saved in this browser. Contact autofill is available on iOS and Android.' : null,
+  );
+  const [loadingPhone, setLoadingPhone] = useState(Platform.OS !== 'web');
+  const phoneSaveQueue = useRef<Promise<void>>(Promise.resolve());
 
   const persistPhone = useCallback(async (value: string) => {
     setPhone(value);
     const digits = toWhatsAppDigits(value);
-    if (digits) {
-      try { await SecureStore.setItemAsync(KEYS.phone, toDisplayPhone(digits)); }
-      catch { setStatus('Could not securely save this number.'); }
-    }
+    phoneSaveQueue.current = phoneSaveQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          await saveLocal(KEYS.phone, digits ? toDisplayPhone(digits) : null);
+        } catch {
+          setStatus('Could not securely save this number.');
+        }
+      });
+    await phoneSaveQueue.current;
   }, []);
 
   const fillFromContactPicker = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      setStatus('Contact autofill is available on iOS and Android.');
+      return false;
+    }
+
     const { status: perm } = await Contacts.requestPermissionsAsync();
     if (perm !== 'granted') {
       setStatus('Contacts permission needed to auto-fill your WhatsApp number.');
@@ -101,10 +135,10 @@ export function ProfileScreen({ onBack }: Props) {
     (async () => {
       try {
         const [savedName, savedPhone, savedLoc, savedWa] = await Promise.all([
-          SecureStore.getItemAsync(KEYS.name),
-          SecureStore.getItemAsync(KEYS.phone),
-          SecureStore.getItemAsync(KEYS.location),
-          SecureStore.getItemAsync(KEYS.whatsapp),
+          readLocal(KEYS.name),
+          readLocal(KEYS.phone),
+          readLocal(KEYS.location),
+          readLocal(KEYS.whatsapp),
         ]);
         if (cancelled) return;
         if (savedName) setName(savedName);
@@ -114,10 +148,21 @@ export function ProfileScreen({ onBack }: Props) {
         if (savedPhone && toWhatsAppDigits(savedPhone)) {
           setPhone(savedPhone);
           setStatus('Using saved WhatsApp number.');
-        } else {
+        } else if (Platform.OS !== 'web') {
           // First open: open the system contact picker so the number comes from this phone.
           await fillFromContactPicker();
+        } else {
+          setStatus('Using the profile saved in this browser.');
         }
+        if (supabaseConfigured) {
+          try {
+            await saveRemoteProfile();
+          } catch {
+            if (!cancelled) setStatus('Profile is saved on this device, but cloud sync failed. Check your connection and try changing a setting again.');
+          }
+        }
+      } catch {
+        if (!cancelled) setStatus('Could not load your saved profile securely.');
       } finally {
         if (!cancelled) setLoadingPhone(false);
       }
@@ -131,17 +176,28 @@ export function ProfileScreen({ onBack }: Props) {
 
   const onChangeName = async (value: string) => {
     setName(value);
-    try { await SecureStore.setItemAsync(KEYS.name, value); } catch { setStatus('Could not save your profile securely.'); }
+    try { await saveLocal(KEYS.name, value); } catch { setStatus('Could not save your profile securely.'); }
   };
 
   const onToggleLocation = async (value: boolean) => {
     setLocationOptIn(value);
-    try { await SecureStore.setItemAsync(KEYS.location, value ? '1' : '0'); } catch { setLocationOptIn(!value); setStatus('Could not save this privacy setting.'); }
+    try {
+      await saveLocal(KEYS.location, value ? '1' : '0');
+    } catch { setLocationOptIn(!value); setStatus('Could not save this privacy setting.'); return; }
+    if (!value) onLocationDisabled();
+    if (!supabaseConfigured) { setStatus('Saved on this device. Connect Supabase to use this preference for live matching.'); return; }
+    try { await saveRemoteProfile(); setStatus('Location sharing preference synced. Location is used only during an active request.'); }
+    catch { setStatus('Saved on this device, but could not sync the location setting. Reopen this screen when online to retry.'); }
   };
 
   const onToggleWhatsapp = async (value: boolean) => {
     setWhatsappOptIn(value);
-    try { await SecureStore.setItemAsync(KEYS.whatsapp, value ? '1' : '0'); } catch { setWhatsappOptIn(!value); setStatus('Could not save this privacy setting.'); }
+    try {
+      await saveLocal(KEYS.whatsapp, value ? '1' : '0');
+    } catch { setWhatsappOptIn(!value); setStatus('Could not save this privacy setting.'); return; }
+    if (!supabaseConfigured) { setStatus('Saved on this device. Connect Supabase to use this preference for live matching.'); return; }
+    try { await saveRemoteProfile(); setStatus('WhatsApp contact preference synced. Your number is shared only after a mutual match.'); }
+    catch { setStatus('Saved on this device, but could not sync the WhatsApp setting. Reopen this screen when online to retry.'); }
   };
 
   return (
@@ -157,6 +213,7 @@ export function ProfileScreen({ onBack }: Props) {
         onChangeText={onChangeName}
         autoComplete="given-name"
         textContentType="givenName"
+        onBlur={() => { if (supabaseConfigured) void saveRemoteProfile().catch(() => setStatus('Could not sync your profile.')); }}
       />
       <Text style={styles.label}>Phone (WhatsApp)</Text>
       <View style={styles.phoneRow}>
@@ -169,6 +226,7 @@ export function ProfileScreen({ onBack }: Props) {
           textContentType="telephoneNumber"
           importantForAutofill="yes"
           placeholder="+1…"
+          onBlur={() => { if (supabaseConfigured) void saveRemoteProfile().catch(() => setStatus('Could not sync your profile.')); }}
         />
         {loadingPhone ? <ActivityIndicator color="#2F6F4E" style={styles.spinner} /> : null}
       </View>
@@ -192,13 +250,13 @@ export function ProfileScreen({ onBack }: Props) {
         <Switch value={locationOptIn} onValueChange={onToggleLocation} />
       </View>
       <View style={styles.row}>
-        <Text style={styles.toggleLabel}>WhatsApp nearby alerts</Text>
+        <Text style={styles.toggleLabel}>Allow WhatsApp contact after a mutual match</Text>
         <Switch value={whatsappOptIn} onValueChange={onToggleWhatsapp} />
       </View>
       <Text style={styles.hint}>
         Profile opens the contact picker so your WhatsApp number comes from this phone (pick your own card).
         The keyboard can also suggest it. {Platform.OS === 'ios' ? 'iPhone' : 'Android'} will not let apps
-        silently read the SIM line. Saved securely on device. Block / report lands later.
+        silently read the SIM line. {Platform.OS === 'web' ? 'Profile data is saved in this browser.' : 'Profile data is saved securely on this device.'} A Supabase connection is required to sync your profile for live matching.
       </Text>
     </View>
   );

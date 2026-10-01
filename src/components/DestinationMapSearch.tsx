@@ -44,19 +44,15 @@ function googleMapsBrowseUrl(lat: number, lng: number, label?: string): string {
 export function DestinationMapSearch({ value, onChange }: Props) {
   const [query, setQuery] = useState(value);
   const [hits, setHits] = useState<DestinationHit[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(value.trim().length >= 2);
   const [selected, setSelected] = useState<DestinationHit | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mapUri = useMemo(() => {
     const lat = selected?.lat ?? PRINCETON_JUNCTION.lat;
     const lng = selected?.lng ?? PRINCETON_JUNCTION.lng;
-    return googleMapsBrowseUrl(lat, lng, selected?.label || query || 'Princeton Junction');
-  }, [selected, query]);
-
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
+    return googleMapsBrowseUrl(lat, lng, selected?.label || 'Princeton Junction');
+  }, [selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +62,7 @@ export function DestinationMapSearch({ value, onChange }: Props) {
         const results = await searchDestinations(value);
         if (cancelled || !results.length) return;
         const h = results[0];
+        setLoading(false);
         setSelected(h);
         onChange({
           label: value,
@@ -86,16 +83,7 @@ export function DestinationMapSearch({ value, onChange }: Props) {
   useEffect(() => {
     let cancelled = false;
     const q = query.trim();
-    if (q.length < 2) {
-      setHits([]);
-      return;
-    }
-    if (selected && q === selected.label) {
-      setHits([]);
-      return;
-    }
-    setLoading(true);
-    setError(null);
+    if (q.length < 2 || (selected && q === selected.label)) return;
     const t = setTimeout(async () => {
       try {
         const results = await searchDestinations(q);
@@ -129,6 +117,9 @@ export function DestinationMapSearch({ value, onChange }: Props) {
           onChangeText={(t) => {
             setSelected(null);
             setQuery(t);
+            setHits([]);
+            setError(null);
+            setLoading(t.trim().length >= 2);
             onChange({ label: t });
           }}
           autoCorrect={false}
@@ -146,6 +137,8 @@ export function DestinationMapSearch({ value, onChange }: Props) {
                 setSelected(h);
                 setQuery(h.label);
                 setHits([]);
+                setLoading(false);
+                setError(null);
                 onChange({
                   label: h.label,
                   lat: h.lat,
