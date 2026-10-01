@@ -13,7 +13,7 @@ type Props = {
     radiusM: RadiusM;
     windowMin: number;
     note: string;
-  }) => void;
+  }) => void | Promise<void>;
 };
 
 const RADII: RadiusM[] = [100, 500, 1000];
@@ -26,6 +26,7 @@ export function CreateRequestScreen({ role, onBack, onBroadcast }: Props) {
   const [radiusM, setRadiusM] = useState<RadiusM>(100);
   const [windowMin, setWindowMin] = useState(15);
   const [note, setNote] = useState('Just got off the NYC train at Princeton Junction');
+  const [broadcasting, setBroadcasting] = useState(false);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -61,20 +62,25 @@ export function CreateRequestScreen({ role, onBack, onBroadcast }: Props) {
       <Text style={styles.label}>Note</Text>
       <TextInput style={[styles.input, styles.note]} value={note} onChangeText={setNote} multiline />
       <Pressable
-        style={[styles.broadcast, !destination.trim() && styles.broadcastDisabled]}
-        disabled={!destination.trim()}
-        onPress={() =>
-          onBroadcast({
-            destination: destination.trim(),
-            destinationLat,
-            destinationLng,
-            radiusM,
-            windowMin,
-            note: note.trim(),
-          })
-        }
+        style={[styles.broadcast, (!destination.trim() || broadcasting) && styles.broadcastDisabled]}
+        disabled={!destination.trim() || broadcasting}
+        onPress={async () => {
+          setBroadcasting(true);
+          try {
+            await onBroadcast({
+              destination: destination.trim(),
+              destinationLat,
+              destinationLng,
+              radiusM,
+              windowMin,
+              note: note.trim(),
+            });
+          } finally {
+            setBroadcasting(false);
+          }
+        }}
       >
-        <Text style={styles.broadcastText}>Broadcast</Text>
+        <Text style={styles.broadcastText}>{broadcasting ? 'Publishing…' : 'Broadcast'}</Text>
       </Pressable>
     </ScrollView>
   );

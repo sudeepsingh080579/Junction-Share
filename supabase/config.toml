@@ -1,0 +1,2 @@
+[functions.notify-nearby]
+verify_jwt = true

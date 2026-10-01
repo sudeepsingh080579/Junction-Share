@@ -25,6 +25,7 @@ const KEYS = {
   phone: 'js_profile_phone',
   location: 'js_profile_location_optin',
   whatsapp: 'js_profile_whatsapp_optin',
+  whatsappAlerts: 'js_profile_whatsapp_alerts_optin',
 } as const;
 
 async function saveLocal(key: string, value: string | null) {
@@ -57,6 +58,7 @@ export function ProfileScreen({ onBack, onLocationDisabled }: Props) {
   const [phone, setPhone] = useState('+1');
   const [locationOptIn, setLocationOptIn] = useState(false);
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+  const [whatsappAlertsOptIn, setWhatsappAlertsOptIn] = useState(false);
   const [status, setStatus] = useState<string | null>(() =>
     Platform.OS === 'web' ? 'Profile settings are saved in this browser. Contact autofill is available on iOS and Android.' : null,
   );
@@ -134,16 +136,18 @@ export function ProfileScreen({ onBack, onLocationDisabled }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const [savedName, savedPhone, savedLoc, savedWa] = await Promise.all([
+        const [savedName, savedPhone, savedLoc, savedWa, savedWaAlerts] = await Promise.all([
           readLocal(KEYS.name),
           readLocal(KEYS.phone),
           readLocal(KEYS.location),
           readLocal(KEYS.whatsapp),
+          readLocal(KEYS.whatsappAlerts),
         ]);
         if (cancelled) return;
         if (savedName) setName(savedName);
         if (savedLoc != null) setLocationOptIn(savedLoc === '1');
         if (savedWa != null) setWhatsappOptIn(savedWa === '1');
+        if (savedWaAlerts != null) setWhatsappAlertsOptIn(savedWaAlerts === '1');
 
         if (savedPhone && toWhatsAppDigits(savedPhone)) {
           setPhone(savedPhone);
@@ -200,6 +204,20 @@ export function ProfileScreen({ onBack, onLocationDisabled }: Props) {
     catch { setStatus('Saved on this device, but could not sync the WhatsApp setting. Reopen this screen when online to retry.'); }
   };
 
+  const onToggleWhatsappAlerts = async (value: boolean) => {
+    if (value && !toWhatsAppDigits(phone)) {
+      setStatus('Add a valid WhatsApp phone number before enabling nearby alerts.');
+      return;
+    }
+    setWhatsappAlertsOptIn(value);
+    try {
+      await saveLocal(KEYS.whatsappAlerts, value ? '1' : '0');
+    } catch { setWhatsappAlertsOptIn(!value); setStatus('Could not save this privacy setting.'); return; }
+    if (!supabaseConfigured) { setStatus('Saved on this device. Connect Supabase to enable nearby alerts.'); return; }
+    try { await saveRemoteProfile(); setStatus(value ? 'WhatsApp nearby alerts enabled. You can turn them off here at any time.' : 'WhatsApp nearby alerts disabled.'); }
+    catch { setStatus('Saved on this device, but could not sync your alert preference. Reopen this screen when online to retry.'); }
+  };
+
   return (
     <View style={styles.root}>
       <Pressable onPress={onBack}>
@@ -250,13 +268,17 @@ export function ProfileScreen({ onBack, onLocationDisabled }: Props) {
         <Switch value={locationOptIn} onValueChange={onToggleLocation} />
       </View>
       <View style={styles.row}>
-        <Text style={styles.toggleLabel}>Allow WhatsApp contact after a mutual match</Text>
+        <Text style={styles.toggleLabel}>Share WhatsApp number after a mutual match</Text>
         <Switch value={whatsappOptIn} onValueChange={onToggleWhatsapp} />
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.toggleLabel}>Send WhatsApp alerts about nearby requests</Text>
+        <Switch value={whatsappAlertsOptIn} onValueChange={onToggleWhatsappAlerts} />
       </View>
       <Text style={styles.hint}>
         Profile opens the contact picker so your WhatsApp number comes from this phone (pick your own card).
         The keyboard can also suggest it. {Platform.OS === 'ios' ? 'iPhone' : 'Android'} will not let apps
-        silently read the SIM line. {Platform.OS === 'web' ? 'Profile data is saved in this browser.' : 'Profile data is saved securely on this device.'} A Supabase connection is required to sync your profile for live matching.
+        silently read the SIM line. Nearby WhatsApp messages are sent only to people who enable alerts, have a valid phone number, and have an active matching request. Turn alerts off here at any time. {Platform.OS === 'web' ? 'Profile data is saved in this browser.' : 'Profile data is saved securely on this device.'} A Supabase connection and WhatsApp Business setup are required for live alerts.
       </Text>
     </View>
   );

@@ -10,7 +10,7 @@ import { MatchScreen } from './src/screens/MatchScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { NearbyCard, RadiusM, RideRequest, Role } from './src/types';
 import { isExpired } from './src/utils/expiry';
-import { declineRequest, endActiveRequest, expressInterest, fetchNearby, loadActiveRequest, publishRequest, readLocalProfile, saveRemoteProfile } from './src/services/matching';
+import { declineRequest, endActiveRequest, expressInterest, fetchNearby, loadActiveRequest, notifyNearbyWhatsApp, publishRequest, readLocalProfile, saveRemoteProfile } from './src/services/matching';
 import { supabaseConfigured } from './src/services/supabase';
 
 type Screen = 'home' | 'create' | 'inbox' | 'match' | 'profile';
@@ -33,7 +33,10 @@ export default function App() {
     let cancelled = false;
     const timer = setTimeout(() => {
       void saveRemoteProfile().then(loadActiveRequest).then((request) => {
-        if (!cancelled) setActive(request);
+        if (!cancelled) {
+          setActive(request);
+          if (request) void notifyNearbyWhatsApp(request.id).catch(() => undefined);
+        }
       }).catch((error: unknown) => {
         if (!cancelled) setInboxStatus(error instanceof Error ? error.message : 'Could not sync your profile.');
       });
@@ -137,13 +140,18 @@ export default function App() {
               const permission = await Location.requestForegroundPermissionsAsync();
               if (permission.status !== 'granted') throw new Error('Location permission is needed to find nearby riders. Allow foreground location access and try again.');
               const point = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-              const req: RideRequest = await publishRequest({
+              const result = await publishRequest({
                 role, destination, destinationLat, destinationLng, radiusM: radiusM as RadiusM,
                 windowMin, note, latitude: point.coords.latitude, longitude: point.coords.longitude,
               });
-              setActive(req);
+              setActive(result.request);
               setInbox([]);
               setScreen('home');
+              if (result.alert.error) {
+                Alert.alert('Request is live', `The request was published, but WhatsApp alerts could not be sent: ${result.alert.error}`);
+              } else if (result.alert.failed > 0) {
+                Alert.alert('Request is live', `WhatsApp accepted ${result.alert.accepted} alert(s); ${result.alert.failed} alert(s) failed.`);
+              }
             } catch (error) {
               Alert.alert('Broadcast unavailable', error instanceof Error ? error.message : 'Please try again.');
             }

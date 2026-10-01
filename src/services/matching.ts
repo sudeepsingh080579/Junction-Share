@@ -4,17 +4,17 @@ import { NearbyCard, RadiusM, Role, RideRequest } from '../types';
 import { supabaseConfigured, supabaseRequest } from './supabase';
 import { toWhatsAppDigits } from '../utils/phone';
 
-const PROFILE_KEYS = { name: 'js_profile_name', phone: 'js_profile_phone', location: 'js_profile_location_optin', whatsapp: 'js_profile_whatsapp_optin' };
+const PROFILE_KEYS = { name: 'js_profile_name', phone: 'js_profile_phone', location: 'js_profile_location_optin', whatsapp: 'js_profile_whatsapp_optin', whatsappAlerts: 'js_profile_whatsapp_alerts_optin' };
 const getLocal = async (key: string) => Platform.OS === 'web'
   ? (typeof localStorage === 'undefined' ? null : localStorage.getItem(key))
   : SecureStore.getItemAsync(key);
 
 export async function readLocalProfile() {
-  const [firstName, phone, location, whatsapp] = await Promise.all(Object.values(PROFILE_KEYS).map(getLocal));
+  const [firstName, phone, location, whatsapp, whatsappAlerts] = await Promise.all(Object.values(PROFILE_KEYS).map(getLocal));
   const phoneDigits = phone ? toWhatsAppDigits(phone) : '';
   return {
     firstName: firstName?.trim() || 'Neighbor', phoneE164: phoneDigits ? `+${phoneDigits}` : '',
-    shareLocation: location === '1', whatsappOptIn: whatsapp === '1',
+    shareLocation: location === '1', whatsappOptIn: whatsapp === '1', whatsappAlertsOptIn: whatsappAlerts === '1',
   };
 }
 
@@ -24,6 +24,7 @@ export async function saveRemoteProfile() {
     method: 'POST', body: JSON.stringify({
       p_first_name: profile.firstName, p_phone_e164: profile.phoneE164,
       p_share_location: profile.shareLocation, p_whatsapp_opt_in: profile.whatsappOptIn,
+      p_whatsapp_alerts_opt_in: profile.whatsappAlertsOptIn,
     }),
   });
   return profile;
@@ -44,12 +45,18 @@ export async function fetchNearby(): Promise<NearbyCard[]> {
   }));
 }
 
+export async function notifyNearbyWhatsApp(requestId: string): Promise<{ accepted: number; failed: number }> {
+  return supabaseRequest<{ accepted: number; failed: number }>('/functions/v1/notify-nearby', {
+    method: 'POST', body: JSON.stringify({ request_id: requestId }),
+  });
+}
+
 export async function fetchMatches(): Promise<NearbyCard[]> {
   const rows = await supabaseRequest<{ request_id: string; first_name: string; phone_e164: string | null; distance_m: number; destination: string; role: Role; seats: number; created_at: string; window_min: number }[]>('/rest/v1/rpc/my_matches', { method: 'POST', body: '{}' });
   return rows.map((row) => ({ id: row.request_id, firstName: row.first_name, phoneE164: row.phone_e164 ? toWhatsAppDigits(row.phone_e164) : '', distanceM: Math.round(row.distance_m), destination: row.destination, role: row.role, seats: row.seats, createdAt: Date.parse(row.created_at), windowMin: row.window_min }));
 }
 
-export async function publishRequest(payload: { role: Role; destination: string; destinationLat?: number; destinationLng?: number; radiusM: RadiusM; windowMin: number; note: string; latitude: number; longitude: number }): Promise<RideRequest> {
+export async function publishRequest(payload: { role: Role; destination: string; destinationLat?: number; destinationLng?: number; radiusM: RadiusM; windowMin: number; note: string; latitude: number; longitude: number }): Promise<{ request: RideRequest; alert: { accepted: number; failed: number; error?: string } }> {
   if (!supabaseConfigured) throw new Error('Live matching is not configured yet. Add the Supabase project URL and publishable key.');
   const profile = await saveRemoteProfile();
   if (!profile.shareLocation) throw new Error('Turn on “Share location while requesting” in Profile / safety before broadcasting.');
@@ -61,7 +68,13 @@ export async function publishRequest(payload: { role: Role; destination: string;
     }),
   });
   const row = rows[0];
-  return { ...payload, id: row.request_id, createdAt: Date.parse(row.created_at) };
+  const request: RideRequest = { ...payload, id: row.request_id, createdAt: Date.parse(row.created_at) };
+  try {
+    const alert = await notifyNearbyWhatsApp(request.id);
+    return { request, alert };
+  } catch (error) {
+    return { request, alert: { accepted: 0, failed: 0, error: error instanceof Error ? error.message : 'WhatsApp notifications could not be sent.' } };
+  }
 }
 
 type InterestResult = { matched: boolean; request_id: string; first_name: string; phone_e164: string | null; distance_m: number; destination: string; role: Role; seats: number; created_at: string; window_min: number }[];
