@@ -7,14 +7,23 @@ JunctionShare uses Supabase anonymous Auth and Postgres RPCs for shared broadcas
 3. Enable **Cron** under Integrations, then run [`supabase/cleanup_cron.sql`](supabase/cleanup_cron.sql). It removes expired requests and their exact location data within about 20 minutes of expiry (at most about 50 minutes after a 30-minute request is created).
 4. Copy `.env.example` to `.env` and set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from the project Connect/API Keys panel. A legacy `anon` client key is also public and can be used in the publishable-key variable. Never use `service_role` or a secret key in Expo variables.
 5. Restart Expo after changing `.env`. For EAS builds, add the same two public client values as EAS environment variables for the build profile.
-6. Deploy the authenticated Edge Function with `supabase functions deploy notify-nearby`. It verifies the caller's Supabase session, uses a server-only service role to select eligible recipients, and sends a WhatsApp template through Meta's Cloud API.
-7. In Meta WhatsApp Manager, create and get approval for a fixed utility template named `junctionshare_nearby_request` (or set the name below). Suggested body: “A nearby JunctionShare ride request might match yours. Open JunctionShare to check your inbox.” Use no template variables. Set the Edge Function secrets using the WhatsApp Business phone number ID, an access token with messaging permission, the approved template name/language, and the Graph API version currently supported by your Meta app:
+6. In Meta for Developers, create/configure a WhatsApp Business Platform app and add a business phone number. Copy its **Phone Number ID** (not the visible phone number). Create a durable access token with `whatsapp_business_messaging` permission for production; avoid the short-lived token shown for initial testing.
+7. In WhatsApp Manager, create and get approval for a fixed utility template named `junctionshare_nearby_request` (or set the name below). Suggested body: “A nearby JunctionShare ride request might match yours. Open JunctionShare to check your inbox.” Use no template variables and language `en_US`, or set the language below to match the approved template. Only message people who explicitly opted in to JunctionShare WhatsApp nearby alerts, and provide a clear opt-out in the app.
+8. Sign into the Supabase CLI and deploy the function from the repository root:
 
    ```sh
-   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... WHATSAPP_ACCESS_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=... WHATSAPP_TEMPLATE_NAME=junctionshare_nearby_request WHATSAPP_TEMPLATE_LANGUAGE=en_US WHATSAPP_GRAPH_API_VERSION=vXX.X
+   supabase login
+   supabase link --project-ref lhtwktvbmuaiekhpybaa
+   supabase functions deploy notify-nearby
    ```
 
-   Keep both secret keys in Supabase Edge Function secrets only. Do not put either key in `.env`, Expo/EAS variables, or the mobile app. Replace `vXX.X` with the version shown in your Meta app.
+9. In the Supabase Dashboard, open **Edge Functions → Secrets** and add these five secrets (or use `supabase secrets set`):
+
+   ```sh
+   supabase secrets set WHATSAPP_ACCESS_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=... WHATSAPP_TEMPLATE_NAME=junctionshare_nearby_request WHATSAPP_TEMPLATE_LANGUAGE=en_US WHATSAPP_GRAPH_API_VERSION=vXX.X
+   ```
+
+   Use the Graph API version supported by your Meta app. Supabase injects `SUPABASE_SERVICE_ROLE_KEY` into Edge Functions; do not try to set it manually. Never put the WhatsApp access token or a service-role/secret key in `.env`, Expo/EAS variables, or the mobile app. The publishable key is the only Supabase key used in the app.
 
 The migration keeps profile/request rows private under RLS. Client access to matching is limited to authenticated RPCs. Nearby RPCs return names and approximate distance only; phone numbers are returned to a match only after both people have expressed interest and both have opted into contact sharing. WhatsApp nearby alerts use a separate explicit opt-in. Only the Edge Function can read alert recipients' phone numbers; delivery records store no phone numbers. Coordinates are used in the database for radius calculations and are never returned by the RPCs. Requests expire after their selected window, users can end a request early, and the optional Cron job purges expired location data shortly afterward.
 
