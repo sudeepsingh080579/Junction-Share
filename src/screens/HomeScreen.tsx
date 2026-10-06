@@ -5,8 +5,8 @@ import { minutesLeft } from '../utils/expiry';
 
 type Props = {
   active?: RideRequest | null;
-  /** Shared clock from App prune tick (for remaining-time label). */
-  now?: number;
+  /** Shared clock from App prune tick (for remaining-time label). Passed in so render stays pure. */
+  now: number;
   inbox: NearbyCard[];
   onNeed: () => void;
   onOffer: () => void;
@@ -14,7 +14,7 @@ type Props = {
   onProfile: () => void;
 };
 
-export function HomeScreen({ active, now = Date.now(), inbox, onNeed, onOffer, onOpenInbox, onProfile }: Props) {
+export function HomeScreen({ active, now, inbox, onNeed, onOffer, onOpenInbox, onProfile }: Props) {
   const left = active ? minutesLeft(active.createdAt, active.windowMin, now) : 0;
 
   return (

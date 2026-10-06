@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   StyleSheet,
@@ -48,15 +49,18 @@ export function DestinationMapSearch({ value, onChange }: Props) {
   const [selected, setSelected] = useState<DestinationHit | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Adopt an externally changed `value` during render (no effect round-trip).
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setQuery(value);
+  }
+
   const mapUri = useMemo(() => {
     const lat = selected?.lat ?? PRINCETON_JUNCTION.lat;
     const lng = selected?.lng ?? PRINCETON_JUNCTION.lng;
     return googleMapsBrowseUrl(lat, lng, selected?.label || query || 'Princeton Junction');
   }, [selected, query]);
-
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,25 +87,20 @@ export function DestinationMapSearch({ value, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const q = query.trim();
+  const shouldSearch = q.length >= 2 && !(selected && q === selected.label);
+
   useEffect(() => {
+    if (!shouldSearch) return;
     let cancelled = false;
-    const q = query.trim();
-    if (q.length < 2) {
-      setHits([]);
-      return;
-    }
-    if (selected && q === selected.label) {
-      setHits([]);
-      return;
-    }
-    setLoading(true);
-    setError(null);
     const t = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
       try {
         const results = await searchDestinations(q);
         if (!cancelled) setHits(results);
       } catch {
-        if (!cancelled) setError('Google Maps search failed — try again.');
+        if (!cancelled) setError('Destination search failed — check your connection and try again.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -110,13 +109,19 @@ export function DestinationMapSearch({ value, onChange }: Props) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [query, selected]);
+  }, [q, shouldSearch]);
+
+  const visibleHits = shouldSearch ? hits : [];
 
   const openGoogleMaps = async () => {
     const url =
       selected?.googleMapsUrl ||
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || 'Princeton Junction')}`;
-    await Linking.openURL(url);
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Unable to open Google Maps', 'Check that Google Maps or a browser is installed, then try again.');
+    }
   };
 
   return (
@@ -128,6 +133,7 @@ export function DestinationMapSearch({ value, onChange }: Props) {
           placeholder="Search on Google Maps"
           onChangeText={(t) => {
             setSelected(null);
+            setHits([]);
             setQuery(t);
             onChange({ label: t });
           }}
@@ -136,9 +142,9 @@ export function DestinationMapSearch({ value, onChange }: Props) {
         />
         {loading ? <ActivityIndicator color="#2F6F4E" style={styles.spinner} /> : null}
       </View>
-      {hits.length > 0 ? (
+      {visibleHits.length > 0 ? (
         <View style={styles.dropdown}>
-          {hits.map((h) => (
+          {visibleHits.map((h) => (
             <Pressable
               key={h.id}
               style={styles.hit}
