@@ -42,3 +42,6 @@ yarn-error.*
 
 # Local build artifacts
 android-builds/
+
+# Play / EAS secrets
+secrets/
