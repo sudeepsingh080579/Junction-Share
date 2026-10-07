@@ -40,3 +40,15 @@ Then open in Expo Go, or use EAS for a real device build.
 ## Status 2026-09-26
 - Destination on Need a ride / Have seats: searchable map + Google Maps open link (Photon near PJ; Google Places if `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` set)
 - Build 4 (contacts WhatsApp autofill) submitted earlier; build 5 = map destination search
+
+## Production-ready 2026-10-07 (v1.0.1 / native build 8)
+Validated the full v1 flow (Home → create → location consent + OS permission → broadcast → nearby inbox → match → WhatsApp; Profile privacy policy; end request). Demo nearby riders now last a 30-minute session. Contacts picker is user-initiated only. Splash, iOS `LSApplicationQueriesSchemes` for WhatsApp, and when-in-use-only location are configured for store builds.
+
+Ship with:
+
+```bash
+npx eas-cli build --platform all --profile production
+npx eas-cli submit --platform all --latest
+```
+
+Live Supabase matching remains a follow-up (`codex/supabase-live-matching`) and is **not** required for this store release.

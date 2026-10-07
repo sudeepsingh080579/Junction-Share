@@ -1,6 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ProfileScreen } from '../ProfileScreen';
 import { PROFILE_KEYS } from '../../storage/profile';
 
@@ -21,12 +23,16 @@ async function clearStore() {
 beforeEach(async () => {
   await clearStore();
   jest.clearAllMocks();
+  (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
 });
 
+function wrap(ui: React.ReactElement) {
+  return <SafeAreaProvider>{ui}</SafeAreaProvider>;
+}
+
 async function renderFreshProfile() {
-  await render(<ProfileScreen onBack={() => {}} />);
-  // The initial keychain read finds no number and the (denied) contacts prompt settles here.
-  await screen.findByText(/Contacts permission needed/);
+  await render(wrap(<ProfileScreen onBack={() => {}} />));
+  await screen.findByLabelText('Share location while requesting');
 }
 
 describe('<ProfileScreen /> privacy defaults', () => {
@@ -41,24 +47,48 @@ describe('<ProfileScreen /> privacy defaults', () => {
     expect(screen.getByDisplayValue('')).toBeTruthy();
   });
 
+  test('does not prompt for contacts until the user asks', async () => {
+    await renderFreshProfile();
+    expect(screen.queryByText(/Contacts permission needed/)).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Use number from this phone'));
+    await screen.findByText(/Contacts permission needed/);
+  });
+
+  test('opens the in-app privacy policy', async () => {
+    await renderFreshProfile();
+    await fireEvent.press(screen.getByLabelText('Privacy Policy'));
+    expect(screen.getByText('Privacy Policy')).toBeTruthy();
+    expect(screen.getByText(/no accounts or in-app payments/i)).toBeTruthy();
+  });
+
   test('restores persisted opt-ins and number', async () => {
     await SecureStore.setItemAsync(PROFILE_KEYS.location, '1');
     await SecureStore.setItemAsync(PROFILE_KEYS.whatsapp, '1');
     await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
-    await render(<ProfileScreen onBack={() => {}} />);
+    await render(wrap(<ProfileScreen onBack={() => {}} />));
     await screen.findByText('Using saved WhatsApp number.');
     expect(screen.getByLabelText('Share location while requesting').props.value).toBe(true);
     expect(screen.getByLabelText('WhatsApp nearby alerts').props.value).toBe(true);
     expect(screen.getByDisplayValue('+16095550101')).toBeTruthy();
   });
 
-  test('turning on location sharing persists explicit consent', async () => {
+  test('turning on location sharing requests OS permission then persists consent', async () => {
     await renderFreshProfile();
     await fireEvent(screen.getByLabelText('Share location while requesting'), 'valueChange', true);
     await waitFor(async () => {
+      expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
       expect(await SecureStore.getItemAsync(PROFILE_KEYS.location)).toBe('1');
     });
     expect(screen.getByLabelText('Share location while requesting').props.value).toBe(true);
+  });
+
+  test('does not persist location opt-in when OS permission is denied', async () => {
+    (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'denied' });
+    await renderFreshProfile();
+    await fireEvent(screen.getByLabelText('Share location while requesting'), 'valueChange', true);
+    await screen.findByText(/Location permission is needed/);
+    expect(screen.getByLabelText('Share location while requesting').props.value).toBe(false);
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.location)).toBeNull();
   });
 
   test('refuses to enable WhatsApp alerts without a valid number', async () => {

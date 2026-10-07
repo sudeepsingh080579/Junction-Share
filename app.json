@@ -2,7 +2,7 @@
   "expo": {
     "name": "JunctionShare",
     "slug": "junctionshare",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,15 +10,17 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.junctionshare.app",
+      "buildNumber": "8",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "JunctionShare uses your location only while a carpool request is active to find opted-in riders within about 100m\u20131km near Princeton Junction.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "JunctionShare uses your location only while a carpool request is active to find nearby opted-in riders.",
+        "NSLocationWhenInUseUsageDescription": "JunctionShare uses your location only while a carpool request is active to find opted-in riders within about 100m–1km near Princeton Junction.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "JunctionShare reads your contacts only to fill your WhatsApp number on the Profile screen."
+        "NSContactsUsageDescription": "JunctionShare reads your contacts only when you choose to fill your WhatsApp number on the Profile screen.",
+        "LSApplicationQueriesSchemes": ["whatsapp", "whatsapp-business"]
       }
     },
     "android": {
       "package": "com.junctionshare.app",
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -41,13 +43,23 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow JunctionShare to use your location while requesting a nearby carpool."
+          "locationWhenInUsePermission": "Allow JunctionShare to use your location while requesting a nearby carpool.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       [
         "expo-contacts",
         {
           "contactsPermission": "Allow JunctionShare to fill your WhatsApp number from Contacts on Profile."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F4EF",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
         }
       ]
     ],

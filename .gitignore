@@ -45,3 +45,6 @@ android-builds/
 
 # Play / EAS secrets
 secrets/
+
+# Local agent scratch
+agent-tools/

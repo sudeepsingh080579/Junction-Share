@@ -2,7 +2,7 @@
   "configVersion": 0,
   "apple": {
     "copyright": "2026 FutureStack Services",
-    "version": "1.0",
+    "version": "1.0.1",
     "release": {
       "automaticRelease": true
     },
@@ -23,7 +23,7 @@
           "whatsapp"
         ],
         "supportUrl": "https://futurestacklearnin.wixsite.com/rydio",
-        "privacyPolicyUrl": "https://futurestacklearnin.wixsite.com/rydio",
+        "privacyPolicyUrl": "https://cdn.jsdelivr.net/gh/sudeepsingh080579/Junction-Share@master/play-store/privacy-policy.html",
         "promoText": "Find a nearby ride or empty seat after the train \u2014 then continue on WhatsApp."
       }
     },

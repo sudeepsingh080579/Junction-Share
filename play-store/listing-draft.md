@@ -66,10 +66,11 @@ carpool, rideshare, princeton junction, west windsor, commute, train, last mile,
 - **Listed for Apple** in `store.config.json` → `apple.info.en-US.privacyPolicyUrl` (and same host as `supportUrl`):
   - `https://futurestacklearnin.wixsite.com/rydio`
 - **Live page check (2026-10-07):** that URL is a **Rydio marketing / community-carpooling homepage**, not a JunctionShare (or Rydio) privacy policy document. No “Privacy Policy” body with data practices.
-- **In-repo privacy policy file:** **none** (no `PRIVACY.md`, `privacy.html`, etc. under the project root).
+- **In-repo privacy policy file:** `play-store/privacy-policy.html` (also shown in-app from Profile).
+- **Store URL in `store.config.json`:** `https://cdn.jsdelivr.net/gh/sudeepsingh080579/Junction-Share@master/play-store/privacy-policy.html`
 
 ### Hosting status
-**No dedicated hosted privacy policy for JunctionShare.** Play Console App content / Data safety **requires a real privacy policy URL**. Do **not** submit the Wix marketing homepage as if it were a privacy policy unless a real policy page is published there (or elsewhere) first.
+A dedicated JunctionShare privacy policy document now exists in-repo and in-app. Use the jsDelivr URL (or host the same HTML on your own domain) in Play Console. Do **not** submit the Rydio marketing homepage as the privacy policy.
 
 ### Key points a policy should cover (from code / product behavior)
 - **No accounts, no payments** in MVP.
@@ -99,7 +100,7 @@ carpool, rideshare, princeton junction, west windsor, commute, train, last mile,
 Play Console typically wants a **512×512** high-res icon (can export/downscale from `icon.png`).
 
 ### Feature graphic
-**None in `assets/` or elsewhere.** Play requires **1024×500** feature graphic for the store listing — **needs to be created**.
+`play-store/feature-graphic.png` (upload to Play Console).
 
 ### Screenshots (phone)
 Phone-style captures (1290×2796) — good candidates for Play phone screenshots after any crop/letterbox to a supported ratio:
@@ -198,10 +199,9 @@ JunctionShare is a last-mile carpool helper for Princeton Junction / West Windso
 
 ---
 
-## 8. Blockers before production listing
+## 8. Play Console steps remaining (outside this repo)
 
-1. **Host a real privacy policy** and paste that URL into Play (do not invent; do not reuse the Rydio marketing home as a policy unless a policy page is actually published).
-2. **Create 1024×500 feature graphic** (missing).
-3. Upload phone screenshots (reuse `store-screenshots/*.png` after format check).
-4. Complete Data safety + Content rating using §5–§6.
-5. Finish remaining Play account / app setup (store listing, target audience, news apps, etc.) then production access path (closed testing requirements may still apply for new personal accounts).
+1. Confirm the privacy policy URL loads in a browser, then paste it into Play App content.
+2. Upload `play-store/feature-graphic.png` and phone screenshots (`play-store/shots/` or `store-screenshots/*.png`).
+3. Complete Data safety + Content rating using §5–§6.
+4. Finish remaining Play account / app setup (store listing, target audience, news apps, etc.). New personal Play accounts may still need closed testing before production access.

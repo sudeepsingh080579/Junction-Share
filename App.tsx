@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { MOCK_NEARBY } from './src/data/mockNearby';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { createDemoNearby } from './src/data/mockNearby';
 import { CreateRequestScreen } from './src/screens/CreateRequestScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ensureForegroundLocation, locationAccessMessage } from './src/services/locationPermission';
 import { clearActiveRequest, loadActiveRequest, saveActiveRequest } from './src/storage/activeRequest';
 import { loadProfile } from './src/storage/profile';
 import { NearbyCard, RadiusM, RideRequest, Role } from './src/types';
@@ -22,7 +24,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [role, setRole] = useState<Role>('need');
   const [active, setActive] = useState<RideRequest | null>(null);
-  const [inbox, setInbox] = useState<NearbyCard[]>(MOCK_NEARBY);
+  const [inbox, setInbox] = useState<NearbyCard[]>(() => createDemoNearby());
   const [match, setMatch] = useState<NearbyCard | null>(null);
   /** Shared clock tick so Home can show "X min left" without its own timer. */
   const [now, setNow] = useState(() => Date.now());
@@ -47,7 +49,10 @@ export default function App() {
     setActive(req);
     setScreen('home');
     saveActiveRequest(req).catch(() => {
-      Alert.alert('Saved for this session only', 'Your request could not be stored on the device and will not survive an app restart.');
+      Alert.alert(
+        'Saved for this session only',
+        'Your request could not be stored on the device and will not survive an app restart.',
+      );
     });
   };
 
@@ -69,7 +74,25 @@ export default function App() {
       );
       return;
     }
+
+    const access = await ensureForegroundLocation();
+    if (!access.ok) {
+      const copy = locationAccessMessage(access);
+      Alert.alert(copy.title, copy.body, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open Profile', onPress: () => setScreen('profile') },
+      ]);
+      return;
+    }
+
     startBroadcast(req);
+  };
+
+  const endRequest = () => {
+    setActive(null);
+    setMatch(null);
+    if (screen === 'match') setScreen('home');
+    void clearActiveRequest();
   };
 
   // Prune expired active broadcast + nearby cards; leave match safely if needed.
@@ -116,60 +139,64 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      {screen === 'home' && (
-        <HomeScreen
-          active={active}
-          now={now}
-          inbox={filteredInbox}
-          onNeed={() => {
-            setRole('need');
-            setScreen('create');
-          }}
-          onOffer={() => {
-            setRole('offer');
-            setScreen('create');
-          }}
-          onOpenInbox={() => setScreen('inbox')}
-          onProfile={() => setScreen('profile')}
-        />
-      )}
-      {screen === 'create' && (
-        <CreateRequestScreen
-          role={role}
-          onBack={() => setScreen('home')}
-          onBroadcast={({ destination, destinationLat, destinationLng, radiusM, windowMin, note }) => {
-            const createdAt = Date.now();
-            const req: RideRequest = {
-              id: String(createdAt),
-              role,
-              destination,
-              destinationLat,
-              destinationLng,
-              radiusM: radiusM as RadiusM,
-              windowMin,
-              note,
-              createdAt,
-            };
-            void requestBroadcast(req);
-          }}
-        />
-      )}
-      {screen === 'inbox' && (
-        <InboxScreen
-          items={filteredInbox}
-          onBack={() => setScreen('home')}
-          onInterested={(card) => {
-            setMatch(card);
-            setScreen('match');
-          }}
-          onDecline={(id) => setInbox((prev) => prev.filter((c) => c.id !== id))}
-        />
-      )}
-      {screen === 'match' && match && (
-        <MatchScreen match={match} request={active} onBack={() => setScreen('inbox')} />
-      )}
-      {screen === 'profile' && <ProfileScreen onBack={() => setScreen('home')} />}
+      <ErrorBoundary>
+        <StatusBar style="dark" />
+        {screen === 'home' && (
+          <HomeScreen
+            active={active}
+            now={now}
+            inbox={filteredInbox}
+            onNeed={() => {
+              setRole('need');
+              setScreen('create');
+            }}
+            onOffer={() => {
+              setRole('offer');
+              setScreen('create');
+            }}
+            onOpenInbox={() => setScreen('inbox')}
+            onProfile={() => setScreen('profile')}
+            onEndRequest={endRequest}
+          />
+        )}
+        {screen === 'create' && (
+          <CreateRequestScreen
+            role={role}
+            onBack={() => setScreen('home')}
+            onBroadcast={({ destination, destinationLat, destinationLng, radiusM, windowMin, note }) => {
+              const createdAt = Date.now();
+              const req: RideRequest = {
+                id: String(createdAt),
+                role,
+                destination,
+                destinationLat,
+                destinationLng,
+                radiusM: radiusM as RadiusM,
+                windowMin,
+                note,
+                createdAt,
+              };
+              void requestBroadcast(req);
+            }}
+          />
+        )}
+        {screen === 'inbox' && (
+          <InboxScreen
+            items={filteredInbox}
+            now={now}
+            onBack={() => setScreen('home')}
+            onInterested={(card) => {
+              setMatch(card);
+              setScreen('match');
+            }}
+            onDecline={(id) => setInbox((prev) => prev.filter((c) => c.id !== id))}
+          />
+        )}
+        {screen === 'match' && match && (
+          <MatchScreen match={match} request={active} onBack={() => setScreen('inbox')} />
+        )}
+        {screen === 'profile' && <ProfileScreen onBack={() => setScreen('home')} />}
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }
