@@ -42,7 +42,7 @@ Then open in Expo Go, or use EAS for a real device build.
 - Build 4 (contacts WhatsApp autofill) submitted earlier; build 5 = map destination search
 
 ## Production-ready 2026-10-07 (v1.0.1 / native build 8)
-Validated the full v1 flow (Home → create → location consent + OS permission → broadcast → nearby inbox → match → WhatsApp; Profile privacy policy; end request). Demo nearby riders now last a 30-minute session. Contacts picker is user-initiated only. Splash, iOS `LSApplicationQueriesSchemes` for WhatsApp, and when-in-use-only location are configured for store builds.
+Validated the full v1 flow (Home → create → broadcast → nearby inbox → match → WhatsApp; Profile privacy policy; end request). Demo nearby riders last a 30-minute session and sit inside the smallest radius. Contacts are read only from a contact the user picks. This build does not request location. Splash and iOS `LSApplicationQueriesSchemes` for WhatsApp are configured for store builds.
 
 Ship with:
 

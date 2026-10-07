@@ -14,10 +14,33 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
-jest.mock('expo-location', () => ({
-  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
-  getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
-}));
+jest.mock('expo-file-system', () => {
+  const files = new Map<string, string>([['js_install_marker_v1', '1']]);
+  class File {
+    name: string;
+    constructor(_dir: unknown, name: string) {
+      this.name = name;
+    }
+    get exists() {
+      return files.has(this.name);
+    }
+    create() {
+      if (files.has(this.name)) throw new Error('exists');
+      files.set(this.name, '');
+    }
+    write(value: string) {
+      files.set(this.name, value);
+    }
+    delete() {
+      files.delete(this.name);
+    }
+  }
+  return {
+    File,
+    Paths: { document: { uri: 'file:///doc' } },
+    __files: files,
+  };
+});
 
 jest.mock('react-native-webview', () => {
   const React = require('react');

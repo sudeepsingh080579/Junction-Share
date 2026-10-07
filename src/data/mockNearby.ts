@@ -3,14 +3,15 @@ import { NearbyCard } from '../types';
 /**
  * Demo nearby riders around Princeton Junction / West Windsor.
  * Built at call time (not module load) so windows stay live for App Review
- * and first-run production walks. 30-minute windows survive a full session.
+ * and first-run production walks. Every card is within 100m (the smallest
+ * radius) and stays visible for 30 minutes.
  */
 export function createDemoNearby(now = Date.now()): NearbyCard[] {
   return [
     {
       id: 'demo-alex',
       firstName: 'Alex',
-      distanceM: 80,
+      distanceM: 40,
       destination: 'West Windsor Community Park',
       role: 'need',
       seats: 1,
@@ -21,7 +22,7 @@ export function createDemoNearby(now = Date.now()): NearbyCard[] {
     {
       id: 'demo-jordan',
       firstName: 'Jordan',
-      distanceM: 220,
+      distanceM: 70,
       destination: 'MarketFair Mall',
       role: 'offer',
       seats: 2,
@@ -32,7 +33,7 @@ export function createDemoNearby(now = Date.now()): NearbyCard[] {
     {
       id: 'demo-sam',
       firstName: 'Sam',
-      distanceM: 450,
+      distanceM: 100,
       destination: 'Edinburg Rd / Quakerbridge',
       role: 'need',
       seats: 1,

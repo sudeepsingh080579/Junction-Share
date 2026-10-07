@@ -33,7 +33,7 @@
       "email": "hello@rydio.app",
       "phone": "+1 6096497802",
       "demoRequired": false,
-      "notes": "JunctionShare is a last-mile carpool helper for the Princeton Junction / West Windsor area. Demo nearby riders appear in the inbox so review can walk Home \u2192 Need a ride \u2192 pick a destination on the map \u2192 Broadcast \u2192 Nearby \u2192 Match \u2192 WhatsApp. Location is used only while a request is active. Profile can fill a WhatsApp number from Contacts. No paid features. Export compliance: standard encryption only (ITSAppUsesNonExemptEncryption = false)."
+        "notes": "JunctionShare is a last-mile carpool helper for the Princeton Junction / West Windsor area. Demo nearby riders appear in the inbox so review can walk Home \u2192 Need a ride \u2192 pick a destination on the map \u2192 Broadcast \u2192 Nearby \u2192 Match \u2192 WhatsApp. This build does not request location. Profile can fill a WhatsApp number only after you pick one contact. No paid features. Export compliance: standard encryption only (ITSAppUsesNonExemptEncryption = false)."
     },
     "advisory": {
       "ageRatingOverride": "NONE",
@@ -60,7 +60,7 @@
       "developerAgeRatingInfoUrl": null,
       "gunsOrOtherWeapons": "NONE",
       "healthOrWellnessTopics": false,
-      "messagingAndChat": false,
+      "messagingAndChat": true,
       "parentalControls": false,
       "userGeneratedContent": false
     },

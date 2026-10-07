@@ -10,15 +10,17 @@ import {
   View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import Constants from 'expo-constants';
 import {
   DestinationHit,
   PRINCETON_JUNCTION,
   searchDestinations,
 } from '../services/destinationSearch';
-import Constants from 'expo-constants';
+import { isAllowedMapUrl } from '../utils/mapUrl';
 
 type Props = {
   value: string;
+  maxLength?: number;
   onChange: (next: { label: string; lat?: number; lng?: number; googleMapsUrl?: string }) => void;
 };
 
@@ -42,7 +44,7 @@ function googleMapsBrowseUrl(lat: number, lng: number, label?: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
 }
 
-export function DestinationMapSearch({ value, onChange }: Props) {
+export function DestinationMapSearch({ value, maxLength, onChange }: Props) {
   const [query, setQuery] = useState(value);
   const [hits, setHits] = useState<DestinationHit[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,33 +61,8 @@ export function DestinationMapSearch({ value, onChange }: Props) {
   const mapUri = useMemo(() => {
     const lat = selected?.lat ?? PRINCETON_JUNCTION.lat;
     const lng = selected?.lng ?? PRINCETON_JUNCTION.lng;
-    return googleMapsBrowseUrl(lat, lng, selected?.label || query || 'Princeton Junction');
-  }, [selected, query]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!value.trim() || selected) return;
-      try {
-        const results = await searchDestinations(value);
-        if (cancelled || !results.length) return;
-        const h = results[0];
-        setSelected(h);
-        onChange({
-          label: value,
-          lat: h.lat,
-          lng: h.lng,
-          googleMapsUrl: h.googleMapsUrl,
-        });
-      } catch {
-        // Keep Princeton Junction Google Maps view until the user searches.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return googleMapsBrowseUrl(lat, lng, selected?.label || 'Princeton Junction');
+  }, [selected]);
 
   const q = query.trim();
   const shouldSearch = q.length >= 2 && !(selected && q === selected.label);
@@ -137,6 +114,7 @@ export function DestinationMapSearch({ value, onChange }: Props) {
             setQuery(t);
             onChange({ label: t });
           }}
+          maxLength={maxLength}
           autoCorrect={false}
           returnKeyType="search"
         />
@@ -169,13 +147,15 @@ export function DestinationMapSearch({ value, onChange }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.mapWrap}>
         <WebView
-          key={mapUri}
+          key={selected?.id ?? 'princeton-junction'}
           source={{ uri: mapUri }}
           style={styles.map}
           javaScriptEnabled
           domStorageEnabled
           startInLoadingState
           setSupportMultipleWindows={false}
+          originWhitelist={['https://*', 'about:blank']}
+          onShouldStartLoadWithRequest={(request) => isAllowedMapUrl(request.url)}
           renderLoading={() => (
             <View style={styles.mapLoading}>
               <ActivityIndicator color="#2F6F4E" />

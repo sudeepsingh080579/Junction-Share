@@ -86,7 +86,35 @@ describe('loadActiveRequest / saveActiveRequest', () => {
   });
 
   test('clearActiveRequest swallows delete failures', async () => {
+    await saveActiveRequest(request);
     (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValueOnce(new Error('nope'));
-    await expect(clearActiveRequest()).resolves.toBeUndefined();
+    await expect(clearActiveRequest(request.id)).resolves.toBeUndefined();
+  });
+
+  test('truncates an over-long destination and note', () => {
+    const parsed = parseRideRequest({
+      ...request,
+      destination: `  ${'Park'.repeat(80)}`,
+      note: 'n'.repeat(500),
+    });
+    expect(parsed?.destination.length).toBeLessThanOrEqual(120);
+    expect(parsed?.note.length).toBe(280);
+  });
+
+  test('clear(oldId) after a newer save does not delete the new request', async () => {
+    await saveActiveRequest({ ...request, id: 'old' });
+    await saveActiveRequest({ ...request, id: 'new', destination: 'Library' });
+    await clearActiveRequest('old');
+    await expect(loadActiveRequest(T0)).resolves.toMatchObject({ id: 'new', destination: 'Library' });
+  });
+
+  test('an expired load does not delete a request saved after it was queued', async () => {
+    await saveActiveRequest(request);
+    const loading = loadActiveRequest(T0 + 15 * MIN);
+    const newer = { ...request, id: 'new', destination: 'Library' };
+    const saving = saveActiveRequest(newer);
+    await loading;
+    await saving;
+    await expect(loadActiveRequest(T0)).resolves.toMatchObject({ id: 'new' });
   });
 });

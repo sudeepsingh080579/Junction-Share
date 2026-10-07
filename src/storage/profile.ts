@@ -49,6 +49,10 @@ export function saveProfilePhone(phoneE164: string): Promise<void> {
   return SecureStore.setItemAsync(PROFILE_KEYS.phone, phoneE164);
 }
 
+export function deleteProfilePhone(): Promise<void> {
+  return SecureStore.deleteItemAsync(PROFILE_KEYS.phone);
+}
+
 export function saveLocationOptIn(value: boolean): Promise<void> {
   return SecureStore.setItemAsync(PROFILE_KEYS.location, value ? '1' : '0');
 }

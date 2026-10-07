@@ -10,7 +10,7 @@ type Props = {
 /** Shared chrome so notches / home indicators never cover primary actions. */
 export function Screen({ children, style }: Props) {
   return (
-    <SafeAreaView style={[styles.root, style]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.root, style]} edges={['top', 'left', 'right', 'bottom']}>
       {children}
     </SafeAreaView>
   );

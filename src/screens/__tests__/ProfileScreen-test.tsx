@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import * as Location from 'expo-location';
+import * as Contacts from 'expo-contacts/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ProfileScreen } from '../ProfileScreen';
@@ -23,7 +23,6 @@ async function clearStore() {
 beforeEach(async () => {
   await clearStore();
   jest.clearAllMocks();
-  (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
 });
 
 function wrap(ui: React.ReactElement) {
@@ -32,14 +31,14 @@ function wrap(ui: React.ReactElement) {
 
 async function renderFreshProfile() {
   await render(wrap(<ProfileScreen onBack={() => {}} />));
-  await screen.findByLabelText('Share location while requesting');
+  await screen.findByLabelText('Use number from this phone');
 }
 
 describe('<ProfileScreen /> privacy defaults', () => {
-  test('both privacy toggles are off for a fresh install', async () => {
+  test('does not show location sharing or WhatsApp alert switches', async () => {
     await renderFreshProfile();
-    expect(screen.getByLabelText('Share location while requesting').props.value).toBe(false);
-    expect(screen.getByLabelText('WhatsApp nearby alerts').props.value).toBe(false);
+    expect(screen.queryByLabelText('Share location while requesting')).toBeNull();
+    expect(screen.queryByLabelText('WhatsApp nearby alerts')).toBeNull();
   });
 
   test('does not display a hardcoded name', async () => {
@@ -49,9 +48,32 @@ describe('<ProfileScreen /> privacy defaults', () => {
 
   test('does not prompt for contacts until the user asks', async () => {
     await renderFreshProfile();
+    expect(Contacts.requestPermissionsAsync).not.toHaveBeenCalled();
     expect(screen.queryByText(/Contacts permission needed/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('Use number from this phone'));
     await screen.findByText(/Contacts permission needed/);
+  });
+
+  test('a cancelled contact picker does not read the address book', async () => {
+    (Contacts.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'granted' });
+    (Contacts.presentContactPickerAsync as jest.Mock).mockResolvedValueOnce(null);
+    await renderFreshProfile();
+    await fireEvent.press(screen.getByLabelText('Use number from this phone'));
+    await screen.findByText('No contact selected.');
+    expect(Contacts.getContactsAsync).not.toHaveBeenCalled();
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
+  });
+
+  test('saves only the contact the user picked', async () => {
+    (Contacts.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'granted' });
+    (Contacts.presentContactPickerAsync as jest.Mock).mockResolvedValueOnce({
+      phoneNumbers: [{ number: '(609) 555-0101', label: 'mobile' }],
+    });
+    await renderFreshProfile();
+    await fireEvent.press(screen.getByLabelText('Use number from this phone'));
+    await screen.findByText(/contact you picked/);
+    expect(Contacts.getContactsAsync).not.toHaveBeenCalled();
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBe('+16095550101');
   });
 
   test('opens the in-app privacy policy', async () => {
@@ -61,42 +83,22 @@ describe('<ProfileScreen /> privacy defaults', () => {
     expect(screen.getByText(/no accounts or in-app payments/i)).toBeTruthy();
   });
 
-  test('restores persisted opt-ins and number', async () => {
-    await SecureStore.setItemAsync(PROFILE_KEYS.location, '1');
-    await SecureStore.setItemAsync(PROFILE_KEYS.whatsapp, '1');
+  test('restores a persisted number', async () => {
     await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
     await render(wrap(<ProfileScreen onBack={() => {}} />));
     await screen.findByText('Using saved WhatsApp number.');
-    expect(screen.getByLabelText('Share location while requesting').props.value).toBe(true);
-    expect(screen.getByLabelText('WhatsApp nearby alerts').props.value).toBe(true);
     expect(screen.getByDisplayValue('+16095550101')).toBeTruthy();
   });
 
-  test('turning on location sharing requests OS permission then persists consent', async () => {
+  test('saves the first name on blur, not on each keystroke', async () => {
     await renderFreshProfile();
-    await fireEvent(screen.getByLabelText('Share location while requesting'), 'valueChange', true);
+    const input = screen.getByLabelText('First name');
+    await fireEvent.changeText(input, 'Sudeep');
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.name)).toBeNull();
+    await fireEvent(input, 'blur');
     await waitFor(async () => {
-      expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
-      expect(await SecureStore.getItemAsync(PROFILE_KEYS.location)).toBe('1');
+      expect(await SecureStore.getItemAsync(PROFILE_KEYS.name)).toBe('Sudeep');
     });
-    expect(screen.getByLabelText('Share location while requesting').props.value).toBe(true);
-  });
-
-  test('does not persist location opt-in when OS permission is denied', async () => {
-    (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'denied' });
-    await renderFreshProfile();
-    await fireEvent(screen.getByLabelText('Share location while requesting'), 'valueChange', true);
-    await screen.findByText(/Location permission is needed/);
-    expect(screen.getByLabelText('Share location while requesting').props.value).toBe(false);
-    expect(await SecureStore.getItemAsync(PROFILE_KEYS.location)).toBeNull();
-  });
-
-  test('refuses to enable WhatsApp alerts without a valid number', async () => {
-    await renderFreshProfile();
-    await fireEvent(screen.getByLabelText('WhatsApp nearby alerts'), 'valueChange', true);
-    expect(screen.getByLabelText('WhatsApp nearby alerts').props.value).toBe(false);
-    expect(screen.getByText('Add a valid WhatsApp number before turning on alerts.')).toBeTruthy();
-    expect(await SecureStore.getItemAsync(PROFILE_KEYS.whatsapp)).toBeNull();
   });
 });
 
@@ -118,6 +120,7 @@ describe('<ProfileScreen /> phone validation', () => {
     expect(screen.getByText(/too short/i)).toBeTruthy();
 
     await fireEvent.changeText(input, '(609) 555-0101');
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
     await fireEvent(input, 'blur');
     expect(screen.queryByText(/too short/i)).toBeNull();
     await waitFor(async () => {
@@ -125,10 +128,25 @@ describe('<ProfileScreen /> phone validation', () => {
     });
   });
 
+  test('deletes the saved number and turns alerts off when the field is cleared', async () => {
+    await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
+    await SecureStore.setItemAsync(PROFILE_KEYS.whatsapp, '1');
+    await render(wrap(<ProfileScreen onBack={() => {}} />));
+    const input = await screen.findByDisplayValue('+16095550101');
+    await fireEvent.changeText(input, '');
+    await fireEvent(input, 'blur');
+    await waitFor(async () => {
+      expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
+      expect(await SecureStore.getItemAsync(PROFILE_KEYS.whatsapp)).toBe('0');
+    });
+  });
+
   test('reports a save failure instead of failing silently', async () => {
     await renderFreshProfile();
     (SecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(new Error('keychain unavailable'));
-    await fireEvent.changeText(screen.getByLabelText('WhatsApp phone number'), '+16095550101');
+    const input = screen.getByLabelText('WhatsApp phone number');
+    await fireEvent.changeText(input, '+16095550101');
+    await fireEvent(input, 'blur');
     await screen.findByText('Could not securely save this number.');
   });
 });
