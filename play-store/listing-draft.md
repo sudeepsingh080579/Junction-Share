@@ -63,11 +63,10 @@ carpool, rideshare, princeton junction, west windsor, commute, train, last mile,
 ## 3. Privacy policy
 
 ### URL already in the project?
-- **Listed for Apple** in `store.config.json` → `apple.info.en-US.privacyPolicyUrl` (and same host as `supportUrl`):
-  - `https://futurestacklearnin.wixsite.com/rydio`
-- **Live page check (2026-10-07):** that URL is a **Rydio marketing / community-carpooling homepage**, not a JunctionShare (or Rydio) privacy policy document. No “Privacy Policy” body with data practices.
-- **In-repo privacy policy file:** `play-store/privacy-policy.html` (also shown in-app from Profile).
-- **Store URL in `store.config.json`:** `https://cdn.jsdelivr.net/gh/sudeepsingh080579/Junction-Share@master/play-store/privacy-policy.html`
+- **Support URL** (`store.config.json` → `supportUrl`): `https://futurestacklearnin.wixsite.com/rydio` — a Rydio marketing homepage, not this privacy policy.
+- **Privacy policy URL** (`privacyPolicyUrl`): `https://cdn.jsdelivr.net/gh/sudeepsingh080579/Junction-Share@master/play-store/privacy-policy.html`
+- **In-repo file:** `play-store/privacy-policy.html` (also shown in-app from Profile).
+- The jsDelivr link serves whatever is on `master`. Host the same HTML on a domain you control if you want a URL that does not move with the repo.
 
 ### Hosting status
 A dedicated JunctionShare privacy policy document now exists in-repo and in-app. Use the jsDelivr URL (or host the same HTML on your own domain) in Play Console. Do **not** submit the Rydio marketing homepage as the privacy policy.
@@ -75,13 +74,13 @@ A dedicated JunctionShare privacy policy document now exists in-repo and in-app.
 ### Key points a policy should cover (from code / product behavior)
 - **No accounts, no payments** in MVP.
 - **WhatsApp phone number:** entered on Profile or filled via Contacts picker; stored **on-device** with `expo-secure-store` under key `js_profile_phone`. Not uploaded to a JunctionShare backend in current code (MVP has no app server for profile).
-- **Name / opt-ins:** `js_profile_name`, `js_profile_location_optin`, `js_profile_whatsapp_optin` also in Secure Store (device-local).
-- **Location:** Android declares `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`; Profile toggle “Share location while requesting”; permission copy says location is used **only while a carpool request is active** to find nearby opted-in riders (~100m–1km). Current MVP inbox uses **demo/mock nearby riders** (`src/data/mockNearby.ts`); live GPS broadcast matching is not yet a backend.
-- **Contacts:** `READ_CONTACTS` / expo-contacts — only to help fill WhatsApp number on Profile (picker / name match). Not used for uploading address books.
+- **Name:** `js_profile_name` in Secure Store (device-local). Saved when the name field blurs.
+- **Location:** not requested and not read. Nearby inbox is demo data from `createDemoNearby()`. Do not declare location collection for this build.
+- **Contacts:** `READ_CONTACTS` only. Permission is requested when the user taps the contacts button, and only the contact they pick is read. Cancelling the picker reads nothing else. `WRITE_CONTACTS` is blocked.
 - **Destination search network:** query text may be sent to **Google Places** (if API key set) or **Photon (komoot)** geocoder; map preview may load Google Maps (WebView / links).
 - **WhatsApp handoff:** opens `https://wa.me/<digits>?text=...` via system browser/WhatsApp — message content leaves the app.
 - **No analytics / ads SDKs** in `package.json`.
-- **Block / report:** UI hint says “lands later” — not implemented.
+- **Block / report:** not implemented.
 
 ---
 
@@ -127,8 +126,8 @@ Use these when answering the IARC / Play questionnaire (do not invent extra risk
 | **Target age** | General / adult commuters; **not** designed for children; no Kids category |
 | **User-generated content** | Optional free-text **Note** on create request; destination label; first name on profile. Nearby list is **demo data** in v1. No public feed/posts. Apple advisory had `userGeneratedContent: false` — Play may still ask about UGC/sharing; answer carefully: limited trip notes + match handoff, not a social network feed |
 | **Social features** | Peer matching for carpools; not a general social network |
-| **Location sharing** | Declared; opt-in toggle; intended while request active; MVP matching is mock |
-| **Messaging / chat** | **No in-app chat.** Hands off to **WhatsApp** (`wa.me`) |
+| **Location sharing** | Not requested in this build. Nearby inbox is demo data. Do not declare location collection. |
+| **Messaging / chat** | **No in-app chat.** Hands off to **WhatsApp** (`wa.me`) so two people can contact each other. Answer the questionnaire as messaging with strangers outside the app. |
 | **Ads** | **None** (`store.config.json` advertising: false; no ad SDKs) |
 | **Payments / IAP** | **None** |
 | **Alcohol / violence / sexual content / gambling** | None (Apple advisory all NONE / false) |
@@ -138,13 +137,12 @@ Use these when answering the IARC / Play questionnaire (do not invent extra risk
 
 ## 6. Data safety facts (from code)
 
-### Permissions (`app.json` → `expo.android.permissions`)
-- `ACCESS_COARSE_LOCATION` / `android.permission.ACCESS_COARSE_LOCATION`
-- `ACCESS_FINE_LOCATION` / `android.permission.ACCESS_FINE_LOCATION`
-- `READ_CONTACTS` / `android.permission.READ_CONTACTS`
-- (React Native / Expo builds also need network for Maps/Places/Photon/WhatsApp links — typically `INTERNET` via the Expo template.)
+### Permissions
+- `READ_CONTACTS` is added by the `expo-contacts` config plugin. `WRITE_CONTACTS` is blocked in `app.json`.
+- Location permissions are not requested. `blockedPermissions` also strips coarse, fine, and background location if a library adds them.
+- Network access for Maps, Places, Photon, and WhatsApp links comes from the Expo template (`INTERNET`).
 
-iOS usage strings (intent, same product story): location while request active; contacts to fill WhatsApp on Profile.
+iOS usage string: contacts, and only to fill a WhatsApp number after the user picks a contact. There is no location usage string.
 
 ### On-device storage (Secure Store — **not** AsyncStorage)
 From `src/screens/ProfileScreen.tsx`:
@@ -153,10 +151,10 @@ From `src/screens/ProfileScreen.tsx`:
 |---|---|
 | `js_profile_name` | First name |
 | `js_profile_phone` | WhatsApp / phone display string |
-| `js_profile_location_optin` | `"1"` / `"0"` share-location toggle |
-| `js_profile_whatsapp_optin` | `"1"` / `"0"` WhatsApp alerts toggle |
+| `js_profile_location_optin` | Legacy key, cleared on a fresh install. The location toggle is not shown. |
+| `js_profile_whatsapp_optin` | Legacy key. The alerts switch is not shown; the flag is turned off when the phone field is cleared. |
 
-Active ride request / inbox / match live in **React state** only (not persisted); inbox seeded from `MOCK_NEARBY`.
+The active ride request is stored in Secure Store until it expires or the user ends it. The inbox is demo data from `createDemoNearby()` (not a server).
 
 ### Network calls
 | Destination | When | Data |
@@ -170,10 +168,10 @@ Active ride request / inbox / match live in **React state** only (not persisted)
 
 ### Analytics / tracking / ads
 - **None** in dependencies: no Firebase Analytics, Sentry, Amplitude, Mixpanel, ads, or App Tracking Transparency usage.
-- `package.json` relevant libs: `expo-location`, `expo-contacts`, `expo-secure-store`, `react-native-webview`, `react-native-maps`, Expo 57.
+- `package.json` relevant libs: `expo-contacts`, `expo-secure-store`, `expo-file-system`, `react-native-webview`, Expo 57. No `expo-location`, `react-native-maps`, or React Navigation.
 
 ### Data safety form — suggested high-level answers (verify before submit)
-- **Collects:** Approximate/precise location (declared; purpose: find nearby carpool while request active — note MVP mock); phone number (on-device for WhatsApp); name (on-device); contacts (ephemeral use to fill phone — typically “not collected by developer” if never leave the device); app activity / destination search queries may hit Google/Photon.
+- **Collects:** No location. Phone number and name stay on device. Contacts are read only for the one contact the user picks (not collected by the developer if the number never leaves the device). Destination search queries are sent to Photon or Google.
 - **Shared:** Not sold. WhatsApp receives message intent when user taps Chat. Geocoders receive search strings.
 - **Encrypted in transit:** HTTPS for Places/Photon/Maps. Secure Store for local profile fields.
 - **Users can request deletion:** Profile is local — clearing app data / uninstall removes Secure Store keys; no cloud account to delete yet.

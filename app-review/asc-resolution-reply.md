@@ -32,23 +32,23 @@ No login credentials or sample files are required. Sign-in is not used.
 
 Suggested review path (same as the screen recording):
 1. Install JunctionShare from the submitted build (or TestFlight).
-2. Launch the app → Home.
+2. Launch the app → Home. Three demo nearby riders are visible. They stay inside the default match radius for 30 minutes from launch.
 3. Tap **Need a ride** (or **Have seats**).
-4. Search/select a destination (map preview; Open in Google Maps available). Set radius and time window; optional note. Tap **Broadcast**.
-5. From Home, open **Nearby** to see demo rider/driver cards within the chosen radius.
-6. Tap a card → **Interested** → Match screen → **Chat on WhatsApp** (opens WhatsApp / wa.me with a prefilled message). Or **Decline** to remove a card.
-7. From Home, open **Profile** to optionally fill a WhatsApp number (Contacts permission is optional; used only to autofill that field).
+4. Search and tap a destination suggestion (map preview; Open in Google Maps available). Set radius and time window; optional note. Tap **Broadcast**. No location permission and no settings toggle are required.
+5. From Home, open **Nearby** to see the demo rider/driver cards still inside the chosen radius. **End request** on Home stops your broadcast early.
+6. Tap a card → **Interested** → Match screen → **Chat on WhatsApp** (opens WhatsApp / wa.me with a prefilled message). Or **Decline** to remove a card. Android’s system Back returns to the previous screen.
+7. Profile (from Home, or from the create screen without losing the draft) can fill a WhatsApp number. Contacts permission is asked only after you tap **Use number from this phone** and pick one contact. Cancelling the picker does not read the address book.
 
 Permissions you may see:
-- Location — only while a carpool request is active, to support nearby matching near Princeton Junction.
-- Contacts — optional, Profile WhatsApp number autofill only.
+- Contacts — optional, and only after you ask to fill a WhatsApp number from a contact you pick.
+- This build does not request location. Nearby cards are demo data.
 
 Demo account: N/A (no accounts).
 
 ---
 
 ## 4. External services, tools, and platforms
-- **Apple** — App Store / TestFlight distribution; device location and contacts APIs via Expo.
+- **Apple** — App Store / TestFlight distribution; the Contacts API via Expo, only after the user picks a contact.
 - **Expo / EAS** — build and submit pipeline (Expo SDK).
 - **Komoot Photon** (photon.komoot.io) — destination place suggestions when a Google Maps API key is not configured (current production default).
 - **Google Maps / Places** (optional) — if `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is set: Places autocomplete + details; map preview via Google Maps embed/WebView; “Open in Google Maps” deep links. Without a key, Photon + Maps links still work.

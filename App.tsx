@@ -1,28 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState, BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { createDemoNearby } from './src/data/mockNearby';
-import { CreateRequestScreen } from './src/screens/CreateRequestScreen';
+import { screenAfterBack, Screen } from './src/navigation/back';
+import { CreateRequestScreen, DEFAULT_DRAFT, RequestDraft } from './src/screens/CreateRequestScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
-import { ensureForegroundLocation, locationAccessMessage } from './src/services/locationPermission';
+import { mergeRestoredRequest, pruneSession } from './src/session/prune';
 import { clearActiveRequest, loadActiveRequest, saveActiveRequest } from './src/storage/activeRequest';
-import { loadProfile } from './src/storage/profile';
+import { clearSecureStoreOnFreshInstall } from './src/storage/installMarker';
 import { NearbyCard, RadiusM, RideRequest, Role } from './src/types';
 import { isExpired } from './src/utils/expiry';
 
-type Screen = 'home' | 'create' | 'inbox' | 'match' | 'profile';
-
-/** How often we prune expired active / nearby requests. */
+/** How often we prune expired active / nearby requests while the app is open. */
 const EXPIRY_TICK_MS = 15_000;
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
+  const [profileFrom, setProfileFrom] = useState<Screen>('home');
   const [role, setRole] = useState<Role>('need');
+  const [draft, setDraft] = useState<RequestDraft>(DEFAULT_DRAFT);
   const [active, setActive] = useState<RideRequest | null>(null);
   const [inbox, setInbox] = useState<NearbyCard[]>(() => createDemoNearby());
   const [match, setMatch] = useState<NearbyCard | null>(null);
@@ -31,21 +32,40 @@ export default function App() {
 
   const activeRef = useRef(active);
   const matchRef = useRef(match);
+  const inboxRef = useRef(inbox);
+  const screenRef = useRef(screen);
+  const profileFromRef = useRef(profileFrom);
+  const sessionEpoch = useRef(0);
+  const alertedExpiry = useRef<string | null>(null);
   activeRef.current = active;
   matchRef.current = match;
+  inboxRef.current = inbox;
+  screenRef.current = screen;
+  profileFromRef.current = profileFrom;
+
+  const openProfile = (from: Screen) => {
+    setProfileFrom(from);
+    setScreen('profile');
+  };
 
   // Restore an in-flight broadcast after a cold start (dropped if it expired while closed).
   useEffect(() => {
+    const epochAtStart = sessionEpoch.current;
     let cancelled = false;
-    loadActiveRequest().then((restored) => {
-      if (!cancelled && restored) setActive(restored);
-    });
+    (async () => {
+      await clearSecureStoreOnFreshInstall();
+      if (cancelled) return;
+      const restored = await loadActiveRequest();
+      if (cancelled) return;
+      setActive((current) => mergeRestoredRequest(current, restored, epochAtStart, sessionEpoch.current));
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
   const startBroadcast = (req: RideRequest) => {
+    sessionEpoch.current += 1;
     setActive(req);
     setScreen('home');
     saveActiveRequest(req).catch(() => {
@@ -56,80 +76,54 @@ export default function App() {
     });
   };
 
-  const requestBroadcast = async (req: RideRequest) => {
-    let locationOptIn = false;
-    try {
-      locationOptIn = (await loadProfile()).locationOptIn;
-    } catch {
-      // Treat unreadable settings as no consent.
-    }
-    if (!locationOptIn) {
-      Alert.alert(
-        'Location sharing is off',
-        'Broadcasting shares your approximate location with nearby riders. Turn on "Share location while requesting" in Profile to continue.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Open Profile', onPress: () => setScreen('profile') },
-        ],
-      );
-      return;
-    }
-
-    const access = await ensureForegroundLocation();
-    if (!access.ok) {
-      const copy = locationAccessMessage(access);
-      Alert.alert(copy.title, copy.body, [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Open Profile', onPress: () => setScreen('profile') },
-      ]);
-      return;
-    }
-
+  const requestBroadcast = (req: RideRequest) => {
     startBroadcast(req);
   };
 
   const endRequest = () => {
+    const id = activeRef.current?.id;
     setActive(null);
-    setMatch(null);
-    if (screen === 'match') setScreen('home');
-    void clearActiveRequest();
+    if (id) void clearActiveRequest(id);
   };
 
-  // Prune expired active broadcast + nearby cards; leave match safely if needed.
+  const pruneRef = useRef<(at?: number) => void>(() => {});
+  pruneRef.current = (at = Date.now()) => {
+    const currentActive = activeRef.current;
+    const result = pruneSession(currentActive, matchRef.current, inboxRef.current, at);
+    setNow(at);
+    if (result.requestEnded && currentActive && alertedExpiry.current !== currentActive.id) {
+      alertedExpiry.current = currentActive.id;
+      Alert.alert('Request ended', 'Your carpool request has expired.');
+      void clearActiveRequest(currentActive.id);
+    }
+    if (result.active !== currentActive) setActive(result.active);
+    if (result.match !== matchRef.current) setMatch(result.match);
+    if (result.inbox !== inboxRef.current) setInbox(result.inbox);
+    if (result.matchEnded && screenRef.current === 'match') setScreen('inbox');
+  };
+
   useEffect(() => {
-    const prune = () => {
-      const t = Date.now();
-      setNow(t);
-
-      const currentActive = activeRef.current;
-      const currentMatch = matchRef.current;
-
-      if (currentActive && isExpired(currentActive.createdAt, currentActive.windowMin, t)) {
-        setActive(null);
-        void clearActiveRequest();
-        // Active broadcast ended — drop match UI tied to this trip.
-        if (currentMatch) setMatch(null);
-      } else if (currentMatch && isExpired(currentMatch.createdAt, currentMatch.windowMin, t)) {
-        setMatch(null);
-      }
-
-      setInbox((prev) => {
-        const next = prev.filter((c) => !isExpired(c.createdAt, c.windowMin, t));
-        return next.length === prev.length ? prev : next;
-      });
+    const tick = () => pruneRef.current();
+    tick();
+    const id = setInterval(tick, EXPIRY_TICK_MS);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') tick();
+    });
+    return () => {
+      clearInterval(id);
+      appState.remove();
     };
-
-    prune();
-    const id = setInterval(prune, EXPIRY_TICK_MS);
-    return () => clearInterval(id);
   }, []);
 
-  // If match was cleared while Match screen is open, go home (no crash / blank screen).
   useEffect(() => {
-    if (screen === 'match' && !match) {
-      setScreen('home');
-    }
-  }, [screen, match]);
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const next = screenAfterBack(screenRef.current, profileFromRef.current);
+      if (!next) return false;
+      setScreen(next);
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   const filteredInbox = useMemo(() => {
     const live = inbox.filter((c) => !isExpired(c.createdAt, c.windowMin, now));
@@ -155,14 +149,17 @@ export default function App() {
               setScreen('create');
             }}
             onOpenInbox={() => setScreen('inbox')}
-            onProfile={() => setScreen('profile')}
+            onProfile={() => openProfile('home')}
             onEndRequest={endRequest}
           />
         )}
         {screen === 'create' && (
           <CreateRequestScreen
             role={role}
+            draft={draft}
+            onDraftChange={setDraft}
             onBack={() => setScreen('home')}
+            onProfile={() => openProfile('create')}
             onBroadcast={({ destination, destinationLat, destinationLng, radiusM, windowMin, note }) => {
               const createdAt = Date.now();
               const req: RideRequest = {
@@ -176,7 +173,7 @@ export default function App() {
                 note,
                 createdAt,
               };
-              void requestBroadcast(req);
+              requestBroadcast(req);
             }}
           />
         )}
@@ -195,7 +192,7 @@ export default function App() {
         {screen === 'match' && match && (
           <MatchScreen match={match} request={active} onBack={() => setScreen('inbox')} />
         )}
-        {screen === 'profile' && <ProfileScreen onBack={() => setScreen('home')} />}
+        {screen === 'profile' && <ProfileScreen onBack={() => setScreen(profileFrom)} />}
       </ErrorBoundary>
     </SafeAreaProvider>
   );

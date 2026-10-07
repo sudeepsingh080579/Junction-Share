@@ -37,8 +37,8 @@ Optional: set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` for Google Places destination se
 
 ## App flow
 
-1. Profile — turn on **Share location while requesting** (OS when-in-use permission).
-2. Home — **Need a ride** or **Have seats**.
-3. Pick destination, radius, time window → **Broadcast**.
-4. Nearby inbox — Interested or Decline.
-5. Match — **Chat on WhatsApp**.
+1. Home — **Need a ride** or **Have seats**.
+2. Pick a destination suggestion, radius, time window → **Broadcast**.
+3. Nearby inbox — Interested or Decline. Demo cards last 30 minutes.
+4. Match — **Chat on WhatsApp**.
+5. Profile — optional WhatsApp number from a contact you pick. **End request** on Home stops a broadcast early.

@@ -27,31 +27,32 @@
   <ul>
     <li>No JunctionShare accounts or in-app payments in the current release.</li>
     <li>No advertising SDKs and no sale of personal information.</li>
-    <li>Profile details you enter (name, WhatsApp number, opt-ins) stay on your device.</li>
-    <li>Location is used only with your permission to help match nearby ride requests.</li>
-    <li>Continuing a match opens WhatsApp (or wa.me), which is operated by Meta under its own policies.</li>
+    <li>The name and WhatsApp number you save stay on your device. They are not uploaded to a JunctionShare server.</li>
+    <li>This release does not request device location. Nearby riders in the inbox are demo data.</li>
+    <li>Contacts are read only after you tap the contacts button and pick one contact. Cancelling the picker reads nothing else.</li>
+    <li>Destination search sends the text you type to Photon (Komoot) or, when configured, Google Places. The map preview loads Google Maps.</li>
+    <li>Continuing a match opens WhatsApp (wa.me), which is operated by Meta under its own policies. There is no in-app chat and no WhatsApp alert service in this release.</li>
   </ul>
 
   <h2>Information stored on your device</h2>
-  <p>If you use Profile, the app may store locally using the device secure storage:</p>
+  <p>If you use Profile, the app may store locally in the device secure store (iOS Keychain or Android Keystore):</p>
   <ul>
     <li>Display name</li>
-    <li>WhatsApp phone number</li>
-    <li>Your choices to share location while requesting and to use WhatsApp for handoff</li>
+    <li>WhatsApp phone number, saved when you leave the field or pick a contact</li>
   </ul>
-  <p>These values are not uploaded to a JunctionShare backend in the current MVP (the app does not operate an account server for profiles).</p>
+  <p>These values are not uploaded to a JunctionShare backend in the current MVP (the app does not operate an account server for profiles). Clearing the phone field deletes the saved number. An active carpool request (destination and note) is also stored on the device until you end it or the time window expires.</p>
 
   <h2>Location</h2>
-  <p>With your permission, JunctionShare may access approximate or precise location while a carpool request is active so it can show nearby matching opportunities within a short radius (about 100m–1km). You can decline location permission; some matching features will be limited. The current release may also show demo nearby riders while live matching is rolled out.</p>
+  <p>This release does not request location permission and does not read your device position. Nearby riders shown in the inbox are demo cards built into the app so you can try the flow. If a later release uses location while a request is active, this policy will be updated.</p>
 
   <h2>Contacts</h2>
-  <p>If you choose the contacts helper on Profile, the app may read contacts only to help you fill your WhatsApp number. Contacts are not uploaded to JunctionShare servers.</p>
+  <p>JunctionShare asks for Contacts permission only when you tap “Use number from this phone” on Profile and then choose one contact in the system picker. The app reads the phone number on the contact you picked. If you cancel the picker, no contacts are read. The app does not scan your address book. Contacts are not uploaded to JunctionShare servers.</p>
 
   <h2>Destination search and maps</h2>
-  <p>When you search for a destination, the search text may be sent to a geocoding provider (Google Places if configured, otherwise Photon by Komoot) to return place suggestions. Map previews may load map tiles or links from Google Maps. Those providers process the query under their own terms and privacy policies.</p>
+  <p>When you search for a destination, the text you type is sent to Photon at photon.komoot.io (operated by Komoot). If the build is configured with a Google Maps API key, the same query is sent to Google Places instead. The in-app map preview loads Google Maps. “Open in Google Maps” hands the place to the Google Maps app or your browser. Those companies process the query under their own terms and privacy policies. Coordinates are attached to a request only after you pick a suggestion.</p>
 
   <h2>WhatsApp handoff</h2>
-  <p>When you choose to continue in WhatsApp, JunctionShare opens WhatsApp or a <code>wa.me</code> link with a prefilled message. Message content and the phone number you use are handled by WhatsApp/Meta, not by JunctionShare servers.</p>
+  <p>When you choose to continue in WhatsApp, JunctionShare opens a <code>wa.me</code> link to the other person’s number with a short prefilled greeting. Message content is handled by WhatsApp/Meta, not by JunctionShare servers. This release does not send WhatsApp alerts and has no in-app chat.</p>
 
   <h2>Trip notes and nearby activity</h2>
   <p>Short trip notes and nearby request cards exist to support matching. There is no public social feed in the app. Block/report tooling noted in the UI may arrive in a later release.</p>
@@ -60,7 +61,7 @@
   <p>JunctionShare is intended for adult commuters and is not directed at children under 13 (or under 18 where a higher age is required for the store listing).</p>
 
   <h2>Data retention and deletion</h2>
-  <p>On-device profile data remains until you clear app data or uninstall the app. Because profile fields are not stored on a JunctionShare server in this MVP, there is no cloud profile to delete with us. For questions, email <a href="mailto:hello@rydio.app">hello@rydio.app</a>.</p>
+  <p>On-device profile data remains until you clear the field, clear app data, or uninstall. Android removes it on uninstall. The iOS Keychain can keep it after uninstall; JunctionShare deletes those keys when it detects a fresh install. Because profile fields are not stored on a JunctionShare server in this MVP, there is no cloud profile to delete with us. For questions, email <a href="mailto:hello@rydio.app">hello@rydio.app</a>.</p>
 
   <h2>Changes</h2>
   <p>We may update this policy as the product evolves (for example, when live matching backends launch). The effective date above will change when we do.</p>
