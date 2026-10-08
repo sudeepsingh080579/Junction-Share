@@ -5,7 +5,7 @@ Apple ID for App Store Connect / EAS: **parul.sharma20@gmail.com**
 ## Already done on this machine
 - Expo (TypeScript) app scaffold at `/workspace/JunctionShare`
 - 5 MVP screens: Home, Create request, Nearby inbox, Match (WhatsApp handoff), Profile
-- Mock nearby riders (Princeton Junction / West Windsor)
+- Live nearby requests (Princeton Junction / West Windsor) when Supabase is configured
 - `ios.bundleIdentifier`: `com.junctionshare.app`
 - `eas.json` submit appleId set to the account above
 
@@ -42,7 +42,7 @@ Then open in Expo Go, or use EAS for a real device build.
 - Build 4 (contacts WhatsApp autofill) submitted earlier; build 5 = map destination search
 
 ## Production-ready 2026-10-07 (v1.0.1 / native build 8)
-Validated the full v1 flow (Home → create → broadcast → nearby inbox → match → WhatsApp; Profile privacy policy; end request). Demo nearby riders last a 30-minute session and sit inside the smallest radius. Contacts are read only from a contact the user picks. This build does not request location. Splash and iOS `LSApplicationQueriesSchemes` for WhatsApp are configured for store builds.
+Validated the full flow (Home → create → broadcast → nearby inbox → match → WhatsApp; Profile privacy policy; end request). Nearby requests come from other people using the app. Location is requested when broadcasting (While Using, then Always while a request is active). Profile saves a name and WhatsApp number with an explicit Save button. Splash and iOS `LSApplicationQueriesSchemes` for WhatsApp are configured for store builds.
 
 Ship with:
 

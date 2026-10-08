@@ -38,7 +38,7 @@ export function HomeScreen({
       </View>
       <Text style={styles.sub}>Princeton Junction → West Windsor last-mile carpool</Text>
       <Text style={styles.banner}>
-        This release includes demo nearby riders so you can try matching while live geo matching rolls out.
+        Broadcast a request to see riders and drivers near you. Requests leave the inbox when their time window ends.
       </Text>
 
       <Pressable

@@ -60,3 +60,10 @@ export function saveLocationOptIn(value: boolean): Promise<void> {
 export function saveWhatsappOptIn(value: boolean): Promise<void> {
   return SecureStore.setItemAsync(PROFILE_KEYS.whatsapp, value ? '1' : '0');
 }
+
+/** Persist a validated name and WhatsApp number. Saving a number opts in to sharing it after a mutual match. */
+export async function saveProfileIdentity(name: string, phoneE164: string): Promise<void> {
+  await SecureStore.setItemAsync(PROFILE_KEYS.name, name);
+  await SecureStore.setItemAsync(PROFILE_KEYS.phone, phoneE164);
+  await saveWhatsappOptIn(true);
+}

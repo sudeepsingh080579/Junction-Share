@@ -3,6 +3,14 @@ import { Alert, BackHandler } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import App from '../../App';
+import { prepareBroadcastLocation, startRequestTracking, stopRequestTracking } from '../services/location';
+import {
+  declineRequest,
+  endActiveRequest,
+  expressInterest,
+  fetchNearbyRequests,
+  publishLiveRequest,
+} from '../services/matching';
 import { PROFILE_KEYS } from '../storage/profile';
 
 jest.mock('../components/DestinationMapSearch', () => {
@@ -27,13 +35,35 @@ jest.mock('../components/DestinationMapSearch', () => {
   };
 });
 
-jest.mock('expo-contacts/legacy', () => ({
-  requestPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
-  presentContactPickerAsync: jest.fn(),
-  getContactsAsync: jest.fn(async () => ({ data: [] })),
-  Fields: { PhoneNumbers: 'phoneNumbers', Name: 'name' },
-  SortTypes: { FirstName: 'firstName' },
+jest.mock('../services/location', () => ({
+  prepareBroadcastLocation: jest.fn(),
+  readCurrentCoordinates: jest.fn(async () => null),
+  startRequestTracking: jest.fn(async () => undefined),
+  stopRequestTracking: jest.fn(async () => undefined),
 }));
+
+jest.mock('../services/matching', () => ({
+  publishLiveRequest: jest.fn(),
+  fetchNearbyRequests: jest.fn(async () => []),
+  fetchMutualMatches: jest.fn(async () => []),
+  fetchRemoteActiveRequest: jest.fn(async () => null),
+  expressInterest: jest.fn(),
+  declineRequest: jest.fn(async () => undefined),
+  endActiveRequest: jest.fn(async () => undefined),
+  updateMyLocation: jest.fn(async () => undefined),
+}));
+
+const nearby = {
+  id: 'near-1',
+  firstName: 'Alex',
+  distanceM: 80,
+  destination: 'Nassau Park',
+  role: 'offer' as const,
+  seats: 2,
+  phoneE164: '',
+  createdAt: Date.now(),
+  windowMin: 30,
+};
 
 async function clearProfile() {
   for (const key of Object.values(PROFILE_KEYS)) {
@@ -42,10 +72,37 @@ async function clearProfile() {
   await SecureStore.deleteItemAsync('js_active_request');
 }
 
+async function saveReadyProfile() {
+  await SecureStore.setItemAsync(PROFILE_KEYS.name, 'Sudeep');
+  await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
+}
+
 beforeEach(async () => {
   await clearProfile();
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  (prepareBroadcastLocation as jest.Mock).mockResolvedValue({
+    ok: true,
+    latitude: 40.316,
+    longitude: -74.623,
+    background: 'granted',
+  });
+  (publishLiveRequest as jest.Mock).mockImplementation(async (input) => ({
+    id: 'live-1',
+    role: input.role,
+    destination: input.destination,
+    destinationLat: input.destinationLat,
+    destinationLng: input.destinationLng,
+    radiusM: input.radiusM,
+    windowMin: input.windowMin,
+    note: input.note,
+    createdAt: Date.now(),
+  }));
+  (fetchNearbyRequests as jest.Mock).mockResolvedValue([nearby]);
+  (expressInterest as jest.Mock).mockResolvedValue({
+    matched: true,
+    match: { ...nearby, phoneE164: '16095550101' },
+  });
 });
 
 afterEach(() => {
@@ -60,38 +117,96 @@ function latestBackHandler(): () => boolean | null | undefined {
 }
 
 describe('JunctionShare production flow', () => {
-  test('home shows demo nearby riders and the main CTAs', async () => {
+  test('home starts with an empty nearby inbox', async () => {
     await render(<App />);
     await screen.findByText('JunctionShare');
     expect(screen.getByLabelText('Need a ride')).toBeTruthy();
     expect(screen.getByLabelText('Have seats')).toBeTruthy();
-    expect(screen.getByText(/3 nearby/)).toBeTruthy();
-    expect(screen.getByText(/demo nearby riders/i)).toBeTruthy();
+    expect(screen.getByText(/0 nearby/)).toBeTruthy();
+    expect(screen.queryByText(/demo/i)).toBeNull();
   });
 
-  test('broadcasts without a location opt-in, matches from inbox, and can end the request', async () => {
+  test('broadcasts a live request, matches from the inbox, and can end the request', async () => {
+    await saveReadyProfile();
     await render(<App />);
     await fireEvent.press(screen.getByLabelText('Need a ride'));
     await screen.findByLabelText('Broadcast');
     await fireEvent.press(screen.getByLabelText('Broadcast'));
     await screen.findByText(/Your active request/);
     expect(screen.getByText(/West Windsor Community Park/)).toBeTruthy();
-    expect(Alert.alert).not.toHaveBeenCalledWith('Location sharing is off', expect.anything(), expect.anything());
+    expect(publishLiveRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ latitude: 40.316, longitude: -74.623, role: 'need' }),
+    );
+    expect(startRequestTracking).toHaveBeenCalled();
 
     await fireEvent.press(screen.getByLabelText('Nearby requests'));
-    await screen.findByText('Nearby inbox');
-    expect(screen.getByText(/Sam ·/)).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText('Decline Sam'));
-    expect(screen.queryByText(/Sam ·/)).toBeNull();
-
+    await screen.findByText(/Alex ·/);
     await fireEvent.press(screen.getByLabelText('Interested in Alex'));
     await screen.findByText('Match');
     expect(screen.getByLabelText('Chat on WhatsApp')).toBeTruthy();
-    expect(screen.getByText(/Your trip: West Windsor Community Park/)).toBeTruthy();
 
     await fireEvent.press(screen.getByLabelText('Back'));
     await fireEvent.press(screen.getByLabelText('Back'));
     await fireEvent.press(screen.getByLabelText('End active request'));
+    await screen.findByText(/0 nearby/);
+    expect(screen.queryByText(/Your active request/)).toBeNull();
+    expect(endActiveRequest).toHaveBeenCalled();
+    expect(stopRequestTracking).toHaveBeenCalled();
+  });
+
+  test('declines a nearby request', async () => {
+    await saveReadyProfile();
+    await render(<App />);
+    await fireEvent.press(screen.getByLabelText('Need a ride'));
+    await fireEvent.press(await screen.findByLabelText('Broadcast'));
+    await screen.findByText(/Your active request/);
+    await fireEvent.press(screen.getByLabelText('Nearby requests'));
+    await screen.findByText(/Alex ·/);
+    await fireEvent.press(screen.getByLabelText('Decline Alex'));
+    await screen.findByText(/No one nearby/);
+    expect(screen.queryByText(/Alex ·/)).toBeNull();
+    expect(declineRequest).toHaveBeenCalledWith('near-1');
+  });
+
+  test('asks for a profile before location when name and number are missing', async () => {
+    await render(<App />);
+    await fireEvent.press(screen.getByLabelText('Need a ride'));
+    await fireEvent.press(await screen.findByLabelText('Broadcast'));
+    await screen.findByLabelText('Broadcast');
+    expect(Alert.alert).toHaveBeenCalledWith('Add your profile', expect.any(String), expect.any(Array));
+    expect(prepareBroadcastLocation).not.toHaveBeenCalled();
+    expect(publishLiveRequest).not.toHaveBeenCalled();
+  });
+
+  test('explains a denied location and leaves the rest of the app available', async () => {
+    await saveReadyProfile();
+    (prepareBroadcastLocation as jest.Mock).mockResolvedValue({
+      ok: false,
+      openSettings: true,
+      message: 'Location is needed to show your request to nearby riders. Allow location in Settings, then broadcast again.',
+    });
+    await render(<App />);
+    await fireEvent.press(screen.getByLabelText('Need a ride'));
+    await fireEvent.press(await screen.findByLabelText('Broadcast'));
+    await screen.findByLabelText('Broadcast');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Location needed',
+      expect.stringMatching(/Settings/),
+      expect.arrayContaining([expect.objectContaining({ text: 'Open Settings' })]),
+    );
+    expect(publishLiveRequest).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText('Back'));
+    expect(await screen.findByText('JunctionShare')).toBeTruthy();
+  });
+
+  test('stays on create when the network fails', async () => {
+    await saveReadyProfile();
+    (publishLiveRequest as jest.Mock).mockRejectedValue(new Error('No network connection. Check your connection and try again.'));
+    await render(<App />);
+    await fireEvent.press(screen.getByLabelText('Have seats'));
+    await fireEvent.press(await screen.findByLabelText('Broadcast'));
+    await screen.findByLabelText('Broadcast');
+    expect(Alert.alert).toHaveBeenCalledWith('Broadcast unavailable', expect.stringMatching(/No network connection/));
     expect(screen.queryByText(/Your active request/)).toBeNull();
   });
 
@@ -126,12 +241,5 @@ describe('JunctionShare production flow', () => {
     await render(<App />);
     await screen.findByText('JunctionShare');
     expect(latestBackHandler()()).toBe(false);
-  });
-
-  test('Have seats uses the offer role on the create screen', async () => {
-    await render(<App />);
-    await fireEvent.press(screen.getByLabelText('Have seats'));
-    await screen.findByText('Have seats');
-    expect(screen.getByLabelText('Broadcast')).toBeTruthy();
   });
 });
