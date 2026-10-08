@@ -48,7 +48,7 @@
           "locationWhenInUsePermission": "JunctionShare uses your location to show your ride request to nearby riders and to find requests near you.",
           "locationAlwaysAndWhenInUsePermission": "JunctionShare uses your location in the background while a request is active to show your request to nearby riders and to keep matching accurate if you move.",
           "locationAlwaysPermission": false,
-          "motionUsagePermission": false,
+          "motionUsagePermission": "JunctionShare does not use motion or fitness data. This permission is listed only because the location library includes optional motion features the app never turns on.",
           "isAndroidMotionActivityEnabled": false,
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true

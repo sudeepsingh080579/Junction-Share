@@ -141,7 +141,7 @@ Use these when answering the IARC / Play questionnaire (do not invent extra risk
 - Location: `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, and a location foreground service, added by the `expo-location` plugin because Always is used while a request is active.
 - Network access for matching, Maps, Places, Photon, and WhatsApp links comes from the Expo template (`INTERNET`).
 
-iOS usage strings: When In Use, and Always And When In Use. Both describe showing your request to nearby riders. Always also says background updates run while a request is active. `NSLocationAlwaysUsageDescription` and `NSMotionUsageDescription` are set to false in the plugin so they are not added.
+iOS usage strings: When In Use, and Always And When In Use. Both describe showing your request to nearby riders. Always also says background updates run while a request is active. `NSLocationAlwaysUsageDescription` is set to false in the plugin so it is not added. `NSMotionUsageDescription` is set (Apple requires it because expo-location references motion APIs); it states the app does not use motion data.
 
 ### On-device storage (Secure Store — **not** AsyncStorage)
 From `src/screens/ProfileScreen.tsx`:
