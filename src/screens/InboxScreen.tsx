@@ -7,12 +7,14 @@ import { minutesLeft } from '../utils/expiry';
 type Props = {
   items: NearbyCard[];
   now: number;
+  note?: string | null;
+  hasActiveRequest?: boolean;
   onBack: () => void;
   onInterested: (card: NearbyCard) => void;
   onDecline: (id: string) => void;
 };
 
-export function InboxScreen({ items, now, onBack, onInterested, onDecline }: Props) {
+export function InboxScreen({ items, now, note, hasActiveRequest = false, onBack, onInterested, onDecline }: Props) {
   return (
     <Screen>
       <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
@@ -20,10 +22,12 @@ export function InboxScreen({ items, now, onBack, onInterested, onDecline }: Pro
       </Pressable>
       <Text style={styles.title}>Nearby inbox</Text>
       <ScrollView contentContainerStyle={styles.list}>
+        {note ? <Text style={styles.note}>{note}</Text> : null}
         {items.length === 0 ? (
           <Text style={styles.empty}>
-            No nearby requests right now. Demo riders expire after their time window — start a new broadcast from Home
-            to keep matching.
+            {hasActiveRequest
+              ? 'No one nearby has an active request right now. This inbox refreshes while it is open.'
+              : 'Broadcast a request to see people near you. You will only see requests from the opposite role inside your radius.'}
           </Text>
         ) : null}
         {items.map((c) => {
@@ -68,6 +72,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#1C2A1F' },
   list: { paddingBottom: 40 },
   empty: { color: '#5A655C', lineHeight: 22 },
+  note: { color: '#A33', lineHeight: 22, marginBottom: 12 },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12 },
   name: { fontWeight: '700', color: '#1C2A1F' },
   body: { color: '#5A655C', marginTop: 4 },

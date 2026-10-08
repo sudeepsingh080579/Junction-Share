@@ -1,17 +1,13 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import * as Contacts from 'expo-contacts/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ProfileScreen } from '../ProfileScreen';
+import { syncSavedProfile } from '../../services/matching';
 import { PROFILE_KEYS } from '../../storage/profile';
+import { ProfileScreen } from '../ProfileScreen';
 
-jest.mock('expo-contacts/legacy', () => ({
-  requestPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
-  presentContactPickerAsync: jest.fn(),
-  getContactsAsync: jest.fn(async () => ({ data: [] })),
-  Fields: { PhoneNumbers: 'phoneNumbers', Name: 'name' },
-  SortTypes: { FirstName: 'firstName' },
+jest.mock('../../services/matching', () => ({
+  syncSavedProfile: jest.fn(async () => undefined),
 }));
 
 async function clearStore() {
@@ -29,124 +25,93 @@ function wrap(ui: React.ReactElement) {
   return <SafeAreaProvider>{ui}</SafeAreaProvider>;
 }
 
-async function renderFreshProfile() {
+async function renderProfile() {
   await render(wrap(<ProfileScreen onBack={() => {}} />));
-  await screen.findByLabelText('Use number from this phone');
+  await screen.findByLabelText('Save profile');
 }
 
-describe('<ProfileScreen /> privacy defaults', () => {
-  test('does not show location sharing or WhatsApp alert switches', async () => {
-    await renderFreshProfile();
-    expect(screen.queryByLabelText('Share location while requesting')).toBeNull();
-    expect(screen.queryByLabelText('WhatsApp nearby alerts')).toBeNull();
-  });
-
-  test('does not display a hardcoded name', async () => {
-    await renderFreshProfile();
-    expect(screen.getByDisplayValue('')).toBeTruthy();
-  });
-
-  test('does not prompt for contacts until the user asks', async () => {
-    await renderFreshProfile();
-    expect(Contacts.requestPermissionsAsync).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Contacts permission needed/)).toBeNull();
-    await fireEvent.press(screen.getByLabelText('Use number from this phone'));
-    await screen.findByText(/Contacts permission needed/);
-  });
-
-  test('a cancelled contact picker does not read the address book', async () => {
-    (Contacts.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'granted' });
-    (Contacts.presentContactPickerAsync as jest.Mock).mockResolvedValueOnce(null);
-    await renderFreshProfile();
-    await fireEvent.press(screen.getByLabelText('Use number from this phone'));
-    await screen.findByText('No contact selected.');
-    expect(Contacts.getContactsAsync).not.toHaveBeenCalled();
-    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
-  });
-
-  test('saves only the contact the user picked', async () => {
-    (Contacts.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'granted' });
-    (Contacts.presentContactPickerAsync as jest.Mock).mockResolvedValueOnce({
-      phoneNumbers: [{ number: '(609) 555-0101', label: 'mobile' }],
-    });
-    await renderFreshProfile();
-    await fireEvent.press(screen.getByLabelText('Use number from this phone'));
-    await screen.findByText(/contact you picked/);
-    expect(Contacts.getContactsAsync).not.toHaveBeenCalled();
-    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBe('+16095550101');
-  });
-
-  test('opens the in-app privacy policy', async () => {
-    await renderFreshProfile();
-    await fireEvent.press(screen.getByLabelText('Privacy Policy'));
-    expect(screen.getByText('Privacy Policy')).toBeTruthy();
-    expect(screen.getByText(/no accounts or in-app payments/i)).toBeTruthy();
-  });
-
-  test('restores a persisted number', async () => {
-    await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
-    await render(wrap(<ProfileScreen onBack={() => {}} />));
-    await screen.findByText('Using saved WhatsApp number.');
-    expect(screen.getByDisplayValue('+16095550101')).toBeTruthy();
-  });
-
-  test('saves the first name on blur, not on each keystroke', async () => {
-    await renderFreshProfile();
-    const input = screen.getByLabelText('First name');
-    await fireEvent.changeText(input, 'Sudeep');
+describe('<ProfileScreen /> save', () => {
+  test('does not offer a contacts button or save while typing', async () => {
+    await renderProfile();
+    expect(screen.queryByLabelText('Use number from this phone')).toBeNull();
+    expect(screen.queryByText(/contacts/i)).toBeNull();
+    const name = screen.getByLabelText('First name');
+    await fireEvent.changeText(name, 'Sudeep');
+    await fireEvent(name, 'blur');
     expect(await SecureStore.getItemAsync(PROFILE_KEYS.name)).toBeNull();
-    await fireEvent(input, 'blur');
+  });
+
+  test('saves a valid name and WhatsApp number and shows a confirmation', async () => {
+    await renderProfile();
+    await fireEvent.changeText(screen.getByLabelText('First name'), 'Sudeep');
+    await fireEvent.changeText(screen.getByLabelText('WhatsApp phone number'), '(609) 555-0101');
+    await fireEvent.press(screen.getByLabelText('Save profile'));
+    await screen.findByText(/Saved\./);
     await waitFor(async () => {
       expect(await SecureStore.getItemAsync(PROFILE_KEYS.name)).toBe('Sudeep');
-    });
-  });
-});
-
-describe('<ProfileScreen /> phone validation', () => {
-  test('shows an error for an invalid number on blur and does not save it', async () => {
-    await renderFreshProfile();
-    const input = screen.getByLabelText('WhatsApp phone number');
-    await fireEvent.changeText(input, '609555');
-    await fireEvent(input, 'blur');
-    expect(screen.getByText(/too short/i)).toBeTruthy();
-    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
-  });
-
-  test('saves a valid number as E.164 and clears the error', async () => {
-    await renderFreshProfile();
-    const input = screen.getByLabelText('WhatsApp phone number');
-    await fireEvent.changeText(input, '609555');
-    await fireEvent(input, 'blur');
-    expect(screen.getByText(/too short/i)).toBeTruthy();
-
-    await fireEvent.changeText(input, '(609) 555-0101');
-    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
-    await fireEvent(input, 'blur');
-    expect(screen.queryByText(/too short/i)).toBeNull();
-    await waitFor(async () => {
       expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBe('+16095550101');
+      expect(await SecureStore.getItemAsync(PROFILE_KEYS.whatsapp)).toBe('1');
+    });
+    expect(syncSavedProfile).toHaveBeenCalledWith({
+      firstName: 'Sudeep',
+      phoneE164: '+16095550101',
+      shareLocation: true,
     });
   });
 
-  test('deletes the saved number and turns alerts off when the field is cleared', async () => {
-    await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
-    await SecureStore.setItemAsync(PROFILE_KEYS.whatsapp, '1');
-    await render(wrap(<ProfileScreen onBack={() => {}} />));
-    const input = await screen.findByDisplayValue('+16095550101');
-    await fireEvent.changeText(input, '');
-    await fireEvent(input, 'blur');
-    await waitFor(async () => {
-      expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
-      expect(await SecureStore.getItemAsync(PROFILE_KEYS.whatsapp)).toBe('0');
-    });
+  test('shows an error and does not save an invalid number', async () => {
+    await renderProfile();
+    await fireEvent.changeText(screen.getByLabelText('First name'), 'Sudeep');
+    await fireEvent.changeText(screen.getByLabelText('WhatsApp phone number'), '609555');
+    await fireEvent.press(screen.getByLabelText('Save profile'));
+    expect(screen.getByText(/too short/i)).toBeTruthy();
+    expect(screen.queryByText(/^Saved\./)).toBeNull();
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.name)).toBeNull();
+    expect(syncSavedProfile).not.toHaveBeenCalled();
+  });
+
+  test('shows an error when the name is missing', async () => {
+    await renderProfile();
+    await fireEvent.changeText(screen.getByLabelText('WhatsApp phone number'), '+16095550101');
+    await fireEvent.press(screen.getByLabelText('Save profile'));
+    expect(screen.getByText('Enter your first name.')).toBeTruthy();
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBeNull();
   });
 
   test('reports a save failure instead of failing silently', async () => {
-    await renderFreshProfile();
+    await renderProfile();
     (SecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(new Error('keychain unavailable'));
-    const input = screen.getByLabelText('WhatsApp phone number');
-    await fireEvent.changeText(input, '+16095550101');
-    await fireEvent(input, 'blur');
-    await screen.findByText('Could not securely save this number.');
+    await fireEvent.changeText(screen.getByLabelText('First name'), 'Sudeep');
+    await fireEvent.changeText(screen.getByLabelText('WhatsApp phone number'), '+16095550101');
+    await fireEvent.press(screen.getByLabelText('Save profile'));
+    await screen.findByText('Could not securely save your profile.');
+    expect(screen.queryByText(/^Saved\./)).toBeNull();
+  });
+
+  test('keeps the on-device save and shows an error when live matching cannot be updated', async () => {
+    (syncSavedProfile as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+    await renderProfile();
+    await fireEvent.changeText(screen.getByLabelText('First name'), 'Sudeep');
+    await fireEvent.changeText(screen.getByLabelText('WhatsApp phone number'), '+16095550101');
+    await fireEvent.press(screen.getByLabelText('Save profile'));
+    await screen.findByText(/Saved on this phone/);
+    expect(await SecureStore.getItemAsync(PROFILE_KEYS.phone)).toBe('+16095550101');
+  });
+
+  test('restores a persisted number', async () => {
+    await SecureStore.setItemAsync(PROFILE_KEYS.name, 'Sudeep');
+    await SecureStore.setItemAsync(PROFILE_KEYS.phone, '+16095550101');
+    await render(wrap(<ProfileScreen onBack={() => {}} />));
+    expect(await screen.findByDisplayValue('Sudeep')).toBeTruthy();
+    expect(screen.getByDisplayValue('+16095550101')).toBeTruthy();
+  });
+
+  test('opens the in-app privacy policy', async () => {
+    await renderProfile();
+    await fireEvent.press(screen.getByLabelText('Privacy Policy'));
+    expect(screen.getByText('Privacy Policy')).toBeTruthy();
+    expect(screen.getByText(/no email sign-in and no in-app payments/i)).toBeTruthy();
+    expect(screen.getByText(/does not read your contacts/i)).toBeTruthy();
   });
 });

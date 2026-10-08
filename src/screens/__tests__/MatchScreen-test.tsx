@@ -2,8 +2,20 @@ import React from 'react';
 import { Alert, Linking } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { MOCK_NEARBY } from '../../data/mockNearby';
+import { NearbyCard } from '../../types';
 import { MatchScreen } from '../MatchScreen';
+
+const MATCH: NearbyCard = {
+  id: 'near-1',
+  firstName: 'Alex',
+  distanceM: 40,
+  destination: 'West Windsor Community Park',
+  role: 'offer',
+  seats: 1,
+  phoneE164: '16095550101',
+  createdAt: 1_700_000_000_000,
+  windowMin: 30,
+};
 
 function wrap(ui: React.ReactElement) {
   return <SafeAreaProvider>{ui}</SafeAreaProvider>;
@@ -22,8 +34,8 @@ afterEach(() => {
 });
 
 describe('<MatchScreen />', () => {
-  test('opens a wa.me link for a valid demo number', async () => {
-    await render(wrap(<MatchScreen match={MOCK_NEARBY[0]} onBack={() => {}} />));
+  test('opens a wa.me link for the matched number', async () => {
+    await render(wrap(<MatchScreen match={MATCH} onBack={() => {}} />));
     await fireEvent.press(screen.getByLabelText('Chat on WhatsApp'));
     await waitFor(() => {
       expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/16095550101?text='));
@@ -34,7 +46,7 @@ describe('<MatchScreen />', () => {
     await render(
       wrap(
         <MatchScreen
-          match={{ ...MOCK_NEARBY[0], phoneE164: '' }}
+          match={{ ...MATCH, phoneE164: '' }}
           onBack={() => {}}
         />,
       ),

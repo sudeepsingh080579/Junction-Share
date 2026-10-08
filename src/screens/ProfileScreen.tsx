@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,16 +9,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Contacts from 'expo-contacts/legacy';
+import * as Location from 'expo-location';
 import { Screen } from '../components/Screen';
-import {
-  DEFAULT_PROFILE,
-  deleteProfilePhone,
-  loadProfile,
-  saveProfileName,
-  saveProfilePhone,
-  saveWhatsappOptIn,
-} from '../storage/profile';
+import { syncSavedProfile } from '../services/matching';
+import { loadProfile, saveProfileIdentity } from '../storage/profile';
 import { phoneValidationMessage, validatePhone } from '../utils/phone';
 import { PrivacyPolicyScreen } from './PrivacyPolicyScreen';
 
@@ -27,91 +20,18 @@ type Props = {
   onBack: () => void;
 };
 
-function pickBestPhone(numbers: Contacts.PhoneNumber[] | undefined): string | null {
-  if (!numbers?.length) return null;
-  const ranked = [...numbers].sort((a, b) => {
-    const aMobile = /mobile|iphone|whatsapp|cell/i.test(a.label || '') ? 0 : 1;
-    const bMobile = /mobile|iphone|whatsapp|cell/i.test(b.label || '') ? 0 : 1;
-    return aMobile - bMobile;
-  });
-  for (const n of ranked) {
-    const v = validatePhone(n.number || '');
-    if (v.ok) return v.e164;
-  }
-  return null;
-}
-
-function fieldWasCleared(value: string): boolean {
-  return value.trim() === '';
-}
+const NAME_MAX = 40;
 
 export function ProfileScreen({ onBack }: Props) {
-  const [name, setName] = useState(DEFAULT_PROFILE.name);
-  const [phone, setPhone] = useState('+1');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [loadingPhone, setLoadingPhone] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
-
-  const commitPhone = useCallback(async (value: string) => {
-    if (fieldWasCleared(value)) {
-      setPhoneError(null);
-      try {
-        await deleteProfilePhone();
-        await saveWhatsappOptIn(false);
-      } catch {
-        setStatus('Could not update the saved number.');
-      }
-      return;
-    }
-    const v = validatePhone(value);
-    setPhoneError(phoneValidationMessage(v));
-    if (!v.ok) return;
-    try {
-      await saveProfilePhone(v.e164);
-      setPhone(v.e164);
-    } catch {
-      setStatus('Could not securely save this number.');
-    }
-  }, []);
-
-  const fillFromContactPicker = useCallback(async () => {
-    const { status: perm } = await Contacts.requestPermissionsAsync();
-    if (perm !== 'granted') {
-      setStatus('Contacts permission needed to fill your WhatsApp number.');
-      return false;
-    }
-
-    let picked: Awaited<ReturnType<typeof Contacts.presentContactPickerAsync>> = null;
-    try {
-      picked = await Contacts.presentContactPickerAsync();
-    } catch {
-      setStatus('Could not open the contact picker on this device.');
-      return false;
-    }
-
-    if (!picked) {
-      setStatus('No contact selected.');
-      return false;
-    }
-
-    const fromPick = pickBestPhone(picked.phoneNumbers);
-    if (!fromPick) {
-      setStatus('That contact has no valid phone number.');
-      return false;
-    }
-
-    setPhone(fromPick);
-    setPhoneError(null);
-    try {
-      await saveProfilePhone(fromPick);
-      setStatus('WhatsApp number filled from the contact you picked.');
-      return true;
-    } catch {
-      setStatus('Could not securely save this number.');
-      return false;
-    }
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,14 +40,11 @@ export function ProfileScreen({ onBack }: Props) {
         const saved = await loadProfile();
         if (cancelled) return;
         setName(saved.name);
-        if (saved.phone) {
-          setPhone(saved.phone);
-          setStatus('Using saved WhatsApp number.');
-        }
+        if (saved.phone) setPhone(saved.phone);
       } catch {
-        if (!cancelled) setStatus('Could not read your saved profile.');
+        if (!cancelled) setSaveError('Could not read your saved profile.');
       } finally {
-        if (!cancelled) setLoadingPhone(false);
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -147,11 +64,50 @@ export function ProfileScreen({ onBack }: Props) {
     return () => sub.remove();
   }, [onBack, showPrivacy]);
 
-  const onBlurName = async () => {
+  const onSave = async () => {
+    const trimmed = name.trim();
+    let nextNameError: string | null = null;
+    if (!trimmed) nextNameError = 'Enter your first name.';
+    else if (trimmed.length > NAME_MAX) nextNameError = 'Use 40 characters or fewer.';
+
+    const phoneResult = validatePhone(phone);
+    const nextPhoneError = phoneResult.ok
+      ? null
+      : phoneResult.reason === 'empty'
+        ? 'Enter your WhatsApp number.'
+        : phoneValidationMessage(phoneResult);
+
+    setNameError(nextNameError);
+    setPhoneError(nextPhoneError);
+    setStatus(null);
+    setSaveError(null);
+    if (nextNameError || nextPhoneError || !phoneResult.ok) return;
+
+    setSaving(true);
     try {
-      await saveProfileName(name);
+      await saveProfileIdentity(trimmed, phoneResult.e164);
+      setName(trimmed);
+      setPhone(phoneResult.e164);
     } catch {
-      setStatus('Could not save your profile securely.');
+      setSaveError('Could not securely save your profile.');
+      setSaving(false);
+      return;
+    }
+
+    let shareLocation = false;
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      shareLocation = perm.status === 'granted';
+    } catch {
+      shareLocation = false;
+    }
+    try {
+      await syncSavedProfile({ firstName: trimmed, phoneE164: phoneResult.e164, shareLocation });
+      setStatus('Saved. Your name and WhatsApp number are shared only after you and another person both tap Interested.');
+    } catch {
+      setSaveError('Saved on this phone. Live matching could not be updated. Check your connection and save again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -174,22 +130,27 @@ export function ProfileScreen({ onBack }: Props) {
         <TextInput
           style={styles.input}
           value={name}
-          onChangeText={setName}
-          onBlur={() => void onBlurName()}
+          onChangeText={(value) => {
+            setName(value);
+            setNameError(null);
+            setStatus(null);
+          }}
           autoComplete="given-name"
           textContentType="givenName"
           accessibilityLabel="First name"
+          maxLength={NAME_MAX}
         />
+        {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
         <Text style={styles.label}>Phone (WhatsApp)</Text>
         <View style={styles.phoneRow}>
           <TextInput
             style={[styles.input, styles.phoneInput]}
             value={phone}
-            onChangeText={(t) => {
-              setPhone(t);
+            onChangeText={(value) => {
+              setPhone(value);
               setPhoneError(null);
+              setStatus(null);
             }}
-            onBlur={() => void commitPhone(phone)}
             accessibilityLabel="WhatsApp phone number"
             keyboardType="phone-pad"
             autoComplete="tel"
@@ -197,28 +158,20 @@ export function ProfileScreen({ onBack }: Props) {
             importantForAutofill="yes"
             placeholder="+1…"
           />
-          {loadingPhone ? <ActivityIndicator color="#2F6F4E" style={styles.spinner} /> : null}
+          {loading ? <ActivityIndicator color="#2F6F4E" style={styles.spinner} /> : null}
         </View>
-        <Pressable
-          style={styles.secondary}
-          onPress={async () => {
-            setLoadingPhone(true);
-            setStatus(null);
-            try {
-              await fillFromContactPicker();
-            } catch {
-              setStatus('Could not read contacts on this device.');
-            } finally {
-              setLoadingPhone(false);
-            }
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Use number from this phone"
-        >
-          <Text style={styles.secondaryText}>Use number from this phone</Text>
-        </Pressable>
         {phoneError ? <Text style={styles.error}>{phoneError}</Text> : null}
+        <Pressable
+          style={[styles.save, saving && styles.saveDisabled]}
+          disabled={saving}
+          onPress={() => void onSave()}
+          accessibilityRole="button"
+          accessibilityLabel="Save profile"
+        >
+          <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
+        </Pressable>
         {status ? <Text style={styles.status}>{status}</Text> : null}
+        {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
         <Pressable
           style={styles.secondary}
           onPress={() => setShowPrivacy(true)}
@@ -228,10 +181,9 @@ export function ProfileScreen({ onBack }: Props) {
           <Text style={styles.secondaryText}>Privacy Policy</Text>
         </Pressable>
         <Text style={styles.hint}>
-          Tap the contacts button and pick your own card when you want JunctionShare to fill your WhatsApp number.
-          Cancelling the picker does not read any other contacts.
-          {Platform.OS === 'ios' ? ' iPhone' : ' Android'} will not let apps silently read the SIM line. The name and
-          number you save stay on this device.
+          Save stores your first name and WhatsApp number on this phone and with live matching. Your number is shown
+          only after you and the other person both tap Interested. Location is requested when you broadcast, including
+          an option to allow it all the time while a request is active.
         </Text>
       </ScrollView>
     </Screen>
@@ -247,6 +199,15 @@ const styles = StyleSheet.create({
   phoneRow: { flexDirection: 'row', alignItems: 'center' },
   phoneInput: { flex: 1 },
   spinner: { marginLeft: 10 },
+  save: {
+    marginTop: 16,
+    backgroundColor: '#2F6F4E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  saveDisabled: { opacity: 0.6 },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   secondary: {
     marginTop: 10,
     alignSelf: 'flex-start',

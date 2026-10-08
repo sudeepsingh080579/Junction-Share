@@ -48,6 +48,23 @@ jest.mock('react-native-webview', () => {
   return { WebView: () => React.createElement(View, { testID: 'webview' }) };
 });
 
+jest.mock('expo-task-manager', () => ({
+  defineTask: jest.fn(),
+  isTaskDefined: jest.fn(() => true),
+}));
+
+jest.mock('expo-location', () => ({
+  Accuracy: { Balanced: 3 },
+  getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+  getBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+  requestBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+  getCurrentPositionAsync: jest.fn(async () => ({ coords: { latitude: 40.316, longitude: -74.623 } })),
+  startLocationUpdatesAsync: jest.fn(async () => undefined),
+  stopLocationUpdatesAsync: jest.fn(async () => undefined),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => false),
+}));
+
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');

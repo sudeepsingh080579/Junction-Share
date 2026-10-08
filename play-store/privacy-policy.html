@@ -16,7 +16,7 @@
 <body>
 <main>
   <h1>JunctionShare Privacy Policy</h1>
-  <p class="meta">Effective date: October 7, 2026<br />
+  <p class="meta">Effective date: October 8, 2026<br />
   Developer: FutureStack Services<br />
   App: JunctionShare (<code>com.junctionshare.app</code>)<br />
   Contact: <a href="mailto:hello@rydio.app">hello@rydio.app</a></p>
@@ -25,46 +25,54 @@
 
   <h2>Summary</h2>
   <ul>
-    <li>No JunctionShare accounts or in-app payments in the current release.</li>
+    <li>No email sign-in and no in-app payments. The app creates an anonymous session so requests can be matched. There is no password.</li>
     <li>No advertising SDKs and no sale of personal information.</li>
-    <li>The name and WhatsApp number you save stay on your device. They are not uploaded to a JunctionShare server.</li>
-    <li>This release does not request device location. Nearby riders in the inbox are demo data.</li>
-    <li>Contacts are read only after you tap the contacts button and pick one contact. Cancelling the picker reads nothing else.</li>
+    <li>The name and WhatsApp number you save are stored on your phone and on the matching service. Your number is shared with another person only after you both tap Interested.</li>
+    <li>Location is used to find nearby requests and to show your request to people near you, including in the background while a request is active if you allow Always.</li>
+    <li>A request, including its coordinates, stays on the server only until the time window ends (or until you end it). It is then deleted.</li>
+    <li>The app does not read your contacts.</li>
     <li>Destination search sends the text you type to Photon (Komoot) or, when configured, Google Places. The map preview loads Google Maps.</li>
-    <li>Continuing a match opens WhatsApp (wa.me), which is operated by Meta under its own policies. There is no in-app chat and no WhatsApp alert service in this release.</li>
+    <li>Continuing a match opens WhatsApp (wa.me), which is operated by Meta under its own policies. There is no in-app chat.</li>
   </ul>
 
   <h2>Information stored on your device</h2>
-  <p>If you use Profile, the app may store locally in the device secure store (iOS Keychain or Android Keystore):</p>
+  <p>If you use Profile, the app stores locally in the device secure store (iOS Keychain or Android Keystore):</p>
   <ul>
     <li>Display name</li>
-    <li>WhatsApp phone number, saved when you leave the field or pick a contact</li>
+    <li>WhatsApp phone number, saved when you tap Save</li>
+    <li>An anonymous matching session</li>
   </ul>
-  <p>These values are not uploaded to a JunctionShare backend in the current MVP (the app does not operate an account server for profiles). Clearing the phone field deletes the saved number. An active carpool request (destination and note) is also stored on the device until you end it or the time window expires.</p>
+  <p>An active carpool request is also stored on the device until you end it or the time window expires. On a new install the app clears secure-store values left behind by a previous install, because the iOS keychain can survive uninstall.</p>
 
   <h2>Location</h2>
-  <p>This release does not request location permission and does not read your device position. Nearby riders shown in the inbox are demo cards built into the app so you can try the flow. If a later release uses location while a request is active, this policy will be updated.</p>
+  <p>JunctionShare asks for location when you broadcast. It requests While Using the App first, then Always, which is the order iOS requires. While Using is enough to publish your current position and see people near you. Always is used only while a request is active: the app updates your position in the background so nearby riders can still see your request if you move. Background updates stop when you end the request or the window expires.</p>
+  <p>If you deny location, the rest of the app stays available. JunctionShare explains why location is needed and links to Settings. Broadcast cannot find people near you without While Using permission. Coordinates are used to measure distance. They are not shown to other people as a map pin or street address.</p>
+  <p>On Android, Always uses background location and a foreground service notification while a request is active, so you can see that location is being updated.</p>
 
-  <h2>Contacts</h2>
-  <p>JunctionShare asks for Contacts permission only when you tap “Use number from this phone” on Profile and then choose one contact in the system picker. The app reads the phone number on the contact you picked. If you cancel the picker, no contacts are read. The app does not scan your address book. Contacts are not uploaded to JunctionShare servers.</p>
+  <h2>Requests stored until they expire</h2>
+  <p>Broadcasting stores, on the matching service, your first name, destination, optional note, role (need a ride or have seats), radius, time window, and device coordinates. People with an active request of the opposite role, inside the shared radius, can see your first name, approximate distance, destination, and note. They do not see your phone number in that list.</p>
+  <p>The service stops returning the request as soon as the time window ends, and deletes the row — including coordinates — shortly afterward. Ending the request removes it immediately.</p>
+
+  <h2>Name and WhatsApp number</h2>
+  <p>Your first name is visible on nearby requests. Your WhatsApp number is stored so it can be shared after a mutual match. Both people must tap Interested before either number is revealed. JunctionShare does not read your contacts or your SIM line.</p>
 
   <h2>Destination search and maps</h2>
   <p>When you search for a destination, the text you type is sent to Photon at photon.komoot.io (operated by Komoot). If the build is configured with a Google Maps API key, the same query is sent to Google Places instead. The in-app map preview loads Google Maps. “Open in Google Maps” hands the place to the Google Maps app or your browser. Those companies process the query under their own terms and privacy policies. Coordinates are attached to a request only after you pick a suggestion.</p>
 
   <h2>WhatsApp handoff</h2>
-  <p>When you choose to continue in WhatsApp, JunctionShare opens a <code>wa.me</code> link to the other person’s number with a short prefilled greeting. Message content is handled by WhatsApp/Meta, not by JunctionShare servers. This release does not send WhatsApp alerts and has no in-app chat.</p>
+  <p>When you choose to continue in WhatsApp, JunctionShare opens a <code>wa.me</code> link to the other person’s number with a short prefilled greeting. Message content is handled by WhatsApp/Meta, not by JunctionShare servers. This release does not send WhatsApp template alerts and has no in-app chat.</p>
 
   <h2>Trip notes and nearby activity</h2>
-  <p>Short trip notes and nearby request cards exist to support matching. There is no public social feed in the app. Block/report tooling noted in the UI may arrive in a later release.</p>
+  <p>Short trip notes and nearby request cards exist to support matching. There is no public social feed. You can Decline a request so it leaves your inbox. Content expires with the request window.</p>
 
   <h2>Children</h2>
   <p>JunctionShare is intended for adult commuters and is not directed at children under 13 (or under 18 where a higher age is required for the store listing).</p>
 
   <h2>Data retention and deletion</h2>
-  <p>On-device profile data remains until you clear the field, clear app data, or uninstall. Android removes it on uninstall. The iOS Keychain can keep it after uninstall; JunctionShare deletes those keys when it detects a fresh install. Because profile fields are not stored on a JunctionShare server in this MVP, there is no cloud profile to delete with us. For questions, email <a href="mailto:hello@rydio.app">hello@rydio.app</a>.</p>
+  <p>On-device profile data remains until you clear app data or uninstall. Android removes it on uninstall. The iOS Keychain can keep it after uninstall; JunctionShare deletes those keys when it detects a fresh install. On the matching service, request rows and coordinates are deleted shortly after the window ends, or immediately when you end the request. The anonymous session and saved name and number remain until you uninstall or email us to delete them. For questions, email <a href="mailto:hello@rydio.app">hello@rydio.app</a>.</p>
 
   <h2>Changes</h2>
-  <p>We may update this policy as the product evolves (for example, when live matching backends launch). The effective date above will change when we do.</p>
+  <p>We may update this policy as the product evolves. The effective date above will change when we do.</p>
 
   <h2>Contact</h2>
   <p>FutureStack Services · <a href="mailto:hello@rydio.app">hello@rydio.app</a><br />

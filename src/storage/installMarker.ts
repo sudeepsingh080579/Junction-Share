@@ -1,12 +1,13 @@
 import { File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
+import { SUPABASE_SESSION_KEY } from '../services/supabase';
 import { ACTIVE_REQUEST_KEY } from './activeRequest';
 import { PROFILE_KEYS } from './profile';
 
 /** Document-directory file. Uninstall removes it; the iOS keychain does not. */
 export const INSTALL_MARKER = 'js_install_marker_v1';
 
-const SECURE_KEYS = [ACTIVE_REQUEST_KEY, ...Object.values(PROFILE_KEYS)];
+const SECURE_KEYS = [ACTIVE_REQUEST_KEY, SUPABASE_SESSION_KEY, ...Object.values(PROFILE_KEYS)];
 
 async function wipeSecureStore(): Promise<void> {
   await Promise.all(SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(key).catch(() => undefined)));

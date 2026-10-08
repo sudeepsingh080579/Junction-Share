@@ -10,7 +10,7 @@
       "en-US": {
         "title": "JunctionShare",
         "subtitle": "PJ last-mile carpool",
-        "description": "JunctionShare helps people around Princeton Junction and West Windsor share last-mile rides.\n\nNeed a ride or have seats? Broadcast a short request with your destination, how far you\u2019re willing to match (about 100m\u20131km), and a time window. See nearby requests, then continue the conversation on WhatsApp when you\u2019re ready to go.\n\nBuilt for the train-to-home stretch: simple, local, and designed so you stay in control of who you contact.\n\nThis first release uses demo nearby riders so you can try the full flow while live matching is rolled out.",
+        "description": "JunctionShare helps people around Princeton Junction and West Windsor share last-mile rides.\n\nNeed a ride or have seats? Broadcast a short request with your destination, how far you\u2019re willing to match (about 100m\u20131km), and a time window. People near you with the opposite request can see it, and you can see theirs. Continue the conversation on WhatsApp when you\u2019re ready to go.\n\nBuilt for the train-to-home stretch: simple, local, and designed so you stay in control of who you contact. Requests expire when their time window ends.\n\nLocation is used to match nearby requests, including in the background while a request is active if you allow it. Your WhatsApp number is shared only after you both tap Interested.",
         "keywords": [
           "carpool",
           "rideshare",
@@ -33,7 +33,7 @@
       "email": "hello@rydio.app",
       "phone": "+1 6096497802",
       "demoRequired": false,
-        "notes": "JunctionShare is a last-mile carpool helper for the Princeton Junction / West Windsor area. Demo nearby riders appear in the inbox so review can walk Home \u2192 Need a ride \u2192 pick a destination on the map \u2192 Broadcast \u2192 Nearby \u2192 Match \u2192 WhatsApp. This build does not request location. Profile can fill a WhatsApp number only after you pick one contact. No paid features. Export compliance: standard encryption only (ITSAppUsesNonExemptEncryption = false)."
+        "notes": "JunctionShare is a last-mile carpool helper for the Princeton Junction / West Windsor area. Live matching: two phones near each other, each with a saved first name and WhatsApp number, broadcast opposite roles (Need a ride and Have seats) and then see each other under Nearby. One phone alone shows an empty inbox. Flow: Home \u2192 Need a ride \u2192 pick a destination \u2192 Broadcast. The app asks for location While Using, then Always. Always updates location only while a request is active so nearby people can still see it in the background; denying it does not block Home or Profile, and Settings is offered. Profile has a Save button for name and WhatsApp number. The app does not read contacts. No paid features. Export compliance: standard encryption only (ITSAppUsesNonExemptEncryption = false)."
     },
     "advisory": {
       "ageRatingOverride": "NONE",
@@ -62,7 +62,7 @@
       "healthOrWellnessTopics": false,
       "messagingAndChat": true,
       "parentalControls": false,
-      "userGeneratedContent": false
+      "userGeneratedContent": true
     },
     "categories": {
       "primary": "TRAVEL",

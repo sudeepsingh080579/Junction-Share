@@ -2,7 +2,7 @@
 
 Last-mile carpool helper for **Princeton Junction / West Windsor**. Need a ride or have seats, broadcast a short request, review nearby cards, then continue on WhatsApp.
 
-This release ships the complete v1 flow with **demo nearby riders** so you can walk matching end-to-end while live geo matching is rolled out separately.
+Broadcasts are live: two phones near each other see each other's requests through Supabase. See `SUPABASE_SETUP.md` for the migration, cleanup job, and environment variables. Copy `.env.example` to `.env` for a local run.
 
 ## Run locally
 
